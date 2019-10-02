@@ -294,14 +294,17 @@ int main(int argc, char *argv[]) {
         imshow("out", imageCopy);
         char key = (char)waitKey(waitTime);
         if(key == 27) break;
-        if(key == 'c' && (ids.size() > 0) && allowCapture) {
-            cout << "Frame captured" << endl;
-            allCorners.push_back(corners);
-            allIds.push_back(ids);
-            allImgs.push_back(image);
-            imgSize = image.size();
-        } else {
-            cout << "Frame rejected" << endl;
+        if(key == 'c' && (ids.size() > 0)) {
+            if (allowCapture) {
+                cout << "Frame captured" << endl;
+                allCorners.push_back(corners);
+                allIds.push_back(ids);
+                allImgs.push_back(image);
+                imgSize = image.size();
+            }
+            else {
+                cout << "Frame rejected" << endl;
+            }
         }
         ros::spinOnce();
         if (ros::isShuttingDown())
