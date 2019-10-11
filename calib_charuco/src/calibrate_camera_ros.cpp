@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
     int squaresY = nhPriv.param("squares_y", 8);
     float squareLength = nhPriv.param("square_length", 0.021);
     float markerLength = nhPriv.param("marker_length", 0.013);
-    int dictionaryId = nhPriv.param("dictionary_id", 0);
+    int dictionaryId = nhPriv.param("dictionary_id", 4);
     string outputFile = nhPriv.param<string>("output_file", "calib.txt");
 
     bool showChessboardCorners = true;
