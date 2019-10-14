@@ -7,6 +7,11 @@ Create catkin workspace dir and sources dir in it (if you don't have catkin work
 mkdir -p ~/catkin_ws/src 
 ```
 
+Clone this repo to `~/catkin_ws/src` directory:
+```bash
+git clone https://github.com/CopterExpress/charuco_calibration.git 
+```
+
 Execute catkin_make command:
 ```bash
 catkin_make
