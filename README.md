@@ -1,5 +1,6 @@
 # charuco_calibration
-Camera calibration via charuco board package
+Camera calibration via charuco board ROS package.
+> If you want to calibrate the camera on the embedded computer (like the Raspberry Pi), you should install this package on your laptop and use remote calibration launch file. 
 
 ## Installation
 Create catkin workspace dir and sources dir in it (if you don't have catkin workspace):
