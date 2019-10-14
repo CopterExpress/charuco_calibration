@@ -118,32 +118,23 @@ static bool saveCameraParams(const string &filename, Size imageSize, float aspec
     if(!fs.isOpened())
         return false;
 
-    time_t tt;
-    time(&tt);
-    struct tm *t2 = localtime(&tt);
-    char buf[1024];
-    strftime(buf, sizeof(buf) - 1, "%c", t2);
+    Mat rectificationMatrix, projectionMatrix;
+    rectificationMatrix = Mat::eye(3, 3, CV_64F);
+    projectionMatrix = Mat::zeros(3, 4, CV_64F);
 
-    fs << "calibration_time" << buf;
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            projectionMatrix.at< double >(i, j) = cameraMatrix.at< double >(i, j);
+        }
+    }
 
     fs << "image_width" << imageSize.width;
     fs << "image_height" << imageSize.height;
-
-    if(flags & CALIB_FIX_ASPECT_RATIO) fs << "aspectRatio" << aspectRatio;
-
-    if(flags != 0) {
-        sprintf(buf, "flags: %s%s%s%s",
-                flags & CALIB_USE_INTRINSIC_GUESS ? "+use_intrinsic_guess" : "",
-                flags & CALIB_FIX_ASPECT_RATIO ? "+fix_aspectRatio" : "",
-                flags & CALIB_FIX_PRINCIPAL_POINT ? "+fix_principal_point" : "",
-                flags & CALIB_ZERO_TANGENT_DIST ? "+zero_tangent_dist" : "");
-    }
-
-    fs << "flags" << flags;
-
+    fs << "distortion_model" << "plumb_bob";
     fs << "camera_matrix" << cameraMatrix;
     fs << "distortion_coefficients" << distCoeffs;
-
+    fs << "rectification_matrix" << rectificationMatrix;
+    fs << "projection_matrix" << projectionMatrix;
     fs << "avg_reprojection_error" << totalAvgErr;
 
     return true;
@@ -234,9 +225,9 @@ int main(int argc, char *argv[]) {
     charucoboard->draw(boardImg.size(), boardImg, 100);
 
     cv::imwrite("board.png", boardImg);
-    cv_bridge::CvImage boardImgBridge;
-    boardImgBridge.image = boardImg;
-    pub.publish(boardImgBridge.toImageMsg());
+    // cv_bridge::CvImage boardImgBridge;
+    // boardImgBridge.image = boardImg;
+    // pub.publish(boardImgBridge.toImageMsg());
 
     // collect data from each frame
     vector< vector< vector< Point2f > > > allCorners;
