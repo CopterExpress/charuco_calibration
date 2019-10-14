@@ -2,8 +2,8 @@
 
     <node pkg="charuco_calibration" name="charuco_calibration" type="charuco_calibration_node" output="screen">
         <remap from="image" to="main_camera/image_raw"/>
-        <param name="square_length" value="0.021309895833333332" />
-        <param name="marker_length" value="0.0127859375"/>
+        <param name="square_length" value="0.0314" />
+        <param name="marker_length" value="0.0190"/>
     </node>
 
 </launch>
