@@ -12,8 +12,9 @@ Clone this repo to `~/catkin_ws/src` directory:
 git clone https://github.com/CopterExpress/charuco_calibration.git 
 ```
 
-Execute catkin_make command:
+Execute catkin_make command from catkin workspace directory:
 ```bash
+cd ~/catkin_ws
 catkin_make
 ```
 
