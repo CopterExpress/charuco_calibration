@@ -131,6 +131,7 @@ static bool saveCameraParams(const string &filename, Size imageSize, float aspec
     fs << "image_width" << imageSize.width;
     fs << "image_height" << imageSize.height;
     fs << "distortion_model" << "plumb_bob";
+    fs << "camera_name" << "raspicam";
     fs << "camera_matrix" << cameraMatrix;
     fs << "distortion_coefficients" << distCoeffs;
     fs << "rectification_matrix" << rectificationMatrix;
@@ -225,9 +226,9 @@ int main(int argc, char *argv[]) {
     charucoboard->draw(boardImg.size(), boardImg, 100);
 
     cv::imwrite("board.png", boardImg);
-    // cv_bridge::CvImage boardImgBridge;
-    // boardImgBridge.image = boardImg;
-    // pub.publish(boardImgBridge.toImageMsg());
+    cv_bridge::CvImage boardImgBridge;
+    boardImgBridge.image = boardImg;
+    pub.publish(boardImgBridge.toImageMsg());
 
     // collect data from each frame
     vector< vector< vector< Point2f > > > allCorners;
@@ -379,6 +380,7 @@ int main(int argc, char *argv[]) {
     cout << "Calibration saved to " << outputFile << endl;
 
     // show interpolated charuco corners for debugging
+    /*
     if(showChessboardCorners) {
         for(unsigned int frame = 0; frame < filteredImages.size(); frame++) {
             Mat imageCopy = filteredImages[frame].clone();
@@ -394,7 +396,7 @@ int main(int argc, char *argv[]) {
             char key = (char)waitKey(0);
             if(key == 27) break;
         }
-    }
+    }*/
 
     return 0;
 }
