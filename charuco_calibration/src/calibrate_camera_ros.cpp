@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
     float squareLength = nhPriv.param("square_length", 0.021);
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
-    string outputFile = nhPriv.param<string>("output_file", "calib.txt");
+    string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
 
     bool showChessboardCorners = true;
 
@@ -374,8 +374,8 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    cout << "Rep Error: " << repError << endl;
-    cout << "Rep Error Aruco: " << arucoRepErr << endl;
+    cout << "Reprojection error: " << repError << endl;
+    cout << "Reprojection error for aruco: " << arucoRepErr << endl;
     cout << "Calibration saved to " << outputFile << endl;
 
     // show interpolated charuco corners for debugging
