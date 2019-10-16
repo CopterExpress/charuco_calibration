@@ -39,11 +39,11 @@ ROS_MASTER_URI="http://hostname:11311" roslaunch charuco_calibration remote_cali
 
 You will need special charuco board, which will be generated in `~/.ros/board.png` after first time of node executing. Print this board, measure square and marker lengths and enter these values as square_length and marker_length parameters of charuco_calibration_node in required `.launch` file. You can find directory with launch files with `roscd charuco_calibration/launch` command. If you run the node first time, restart it after you correct `.launch` file.
 
-Make about 20-25 different pictures by pressing "c" button on image window and then make camera calibration by pressing the "esc" button. Blue calibration dots should cover the whole image.
+Make about 20-25 different pictures by pressing "c" button on image window and then make camera calibration by pressing the "esc" button. Blue calibration dots should cover the whole image during the process of calibration.
 
-Calibration file will be saved in `~/.ros` directory as `calibration.yaml` file by default. You can change path to file and filename in the `filepath` parameter in the launch file. Specify the path to this file to the program, which require it.
+Calibration file will be saved in `~/.ros` directory as `calibration.yaml` file by default. You can change path to output file in the `output_file` parameter in the launch file. Specify the path to this file to the program, which require it.
 
-The main goal of calibration - get the calibration file with minimal reprojection error. Typical reprojection error is `0.5`, typical reprojection error for aruco markers is `1.0`.
+The main goal of calibration - get the calibration file with minimal reprojection error. Typical reprojection error is `0.5`, typical reprojection error for aruco markers is `1.0`. You can check visual quality of calibration by viewing undistorted frame after process of calibration.
 
 ## Check calibration
 You can use [undistortion node](https://github.com/CopterExpress/clever_tools/blob/master/clever_tools/src/undistort_camera.py) from [clever_tools](https://github.com/CopterExpress/clever_tools) package to publish indistorted image to topic. You can view it using web_video_server or rqt_image_view ROS packages.
