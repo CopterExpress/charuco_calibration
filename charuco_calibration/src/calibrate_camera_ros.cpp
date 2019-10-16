@@ -380,25 +380,27 @@ int main(int argc, char *argv[]) {
     cout << "Reprojection error: " << repError << endl;
     cout << "Reprojection error for aruco: " << arucoRepErr << endl;
     cout << "Calibration saved to " << outputFile << endl;
+    cout << "Check undistorted sample of first input image. Press any key to exit." << endl;
 
-    // show interpolated charuco corners for debugging
-    /*
-    if(showChessboardCorners) {
-        for(unsigned int frame = 0; frame < filteredImages.size(); frame++) {
-            Mat imageCopy = filteredImages[frame].clone();
-            if(allIds[frame].size() > 0) {
+    if (filteredImages.size() > 1) {
 
-                if(allCharucoCorners[frame].total() > 0) {
-                    aruco::drawDetectedCornersCharuco( imageCopy, allCharucoCorners[frame],
-                                                       allCharucoIds[frame]);
-                }
+        Mat imageCopy = filteredImages[0].clone();
+        if(allIds[0].size() > 0) {
+
+            if(allCharucoCorners[0].total() > 0) {
+                aruco::drawDetectedCornersCharuco( imageCopy, allCharucoCorners[0],
+                                                    allCharucoIds[0]);
             }
-
-            imshow("out", imageCopy);
-            char key = (char)waitKey(0);
-            if(key == 27) break;
         }
-    }*/
+
+        Mat imageCopyUndistorted = imageCopy.clone();
+
+        undistort(imageCopy, imageCopyUndistorted, cameraMatrix, distCoeffs);
+
+        imshow("Undistorted Sample", imageCopyUndistorted);
+        char key = (char)waitKey(0);
+
+    }
 
     return 0;
 }
