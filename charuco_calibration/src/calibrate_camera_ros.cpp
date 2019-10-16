@@ -128,15 +128,17 @@ static bool saveCameraParams(const string &filename, Size imageSize, float aspec
         }
     }
 
+    Mat croppedDistCoeffs = distCoeffs.colRange(0, 8);
+
     fs << "image_width" << imageSize.width;
     fs << "image_height" << imageSize.height;
     fs << "distortion_model" << "plumb_bob";
     fs << "camera_name" << "raspicam";
+    fs << "avg_reprojection_error" << totalAvgErr;
     fs << "camera_matrix" << cameraMatrix;
-    fs << "distortion_coefficients" << distCoeffs;
+    fs << "distortion_coefficients" << croppedDistCoeffs;
     fs << "rectification_matrix" << rectificationMatrix;
     fs << "projection_matrix" << projectionMatrix;
-    fs << "avg_reprojection_error" << totalAvgErr;
 
     return true;
 }
