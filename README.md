@@ -42,7 +42,7 @@ Parameters:
 * `squares_y` - number of charuco board squares along y axis, default is 8
 * `square_length` - length of square side in m
 * `marker_length` - length of aruco side in m
-* `dictionary_id` - id of aruco markers dictionary, default is 4 (DICT_5X5_50). You can view all dictionary id's descriptions at the top of the [source code](charuco_calibration/src/calibrate_camera_ros.cpp)
+* `dictionary_id` - id of aruco markers dictionary, default is 4 (DICT_5X5_50). You can view all dictionary id's descriptions at the top of the [source code](https://github.com/CopterExpress/charuco_calibration/blob/master/charuco_calibration/src/calibrate_camera_ros.cpp#L66)
 * `save_images` - option to save all captured images to folder with calibration, default is `true`
 * `output_file` - name of the calibration file, default is `calibration.yaml`
 
@@ -50,9 +50,9 @@ You will need special charuco board, which will be generated in `~/.ros/board.pn
 
 Make about 20-25 different pictures of the charuco board from different angles by pressing "c" key. Make camera calibration by pressing the "esc" key after you make enough frames. Blue calibration dots should cover the whole image during the process of calibration.
 
-Calibration file will be saved in `~/.ros/calibration_<date>_<time>` directory as `calibration.yaml` file by default. You can change path to output file in the `output_file` parameter in the launch file. Specify the path to this file to the program, which require it.
+Calibration file will be saved in `~/.ros/calibration_<date>_<time>` directory as `calibration.yaml` file by default. You can change the name of the calibration file in the `output_file` parameter in the launch file.
 
-Also, you can save all captured images to this folder for analysis, if you specify `save_images` parameter as `true`.
+Also, you can save all captured images to the calibration folder for further analysis if you specify `save_images` parameter as `true`.
 
 The main goal of calibration - get the calibration file with minimal reprojection error. Typical reprojection error is `0.3`, typical reprojection error for aruco markers is `1.0`.
 
@@ -61,6 +61,10 @@ The main goal of calibration - get the calibration file with minimal reprojectio
 You can check visual quality of calibration by viewing undistorted images from camera after the process of calibration.
 
 Also, you can use [undistortion node](https://github.com/CopterExpress/clever_tools/blob/master/clever_tools/src/undistort_camera.py) from [clever_tools](https://github.com/CopterExpress/clever_tools) package to publish indistorted image to topic. You can view it using web_video_server or rqt_image_view ROS packages.
+
+## Use the calibration
+
+Put the calibration file to the required directory for the program which requires it. For example, in the [clever](https://github.com/CopterExpress/clever) package the calibration file should be placed to the [camera_info](https://github.com/CopterExpress/clever/tree/master/clever/camera_info) folder and the path to the calibration file should be specified in the [main_camera.launch](https://github.com/CopterExpress/clever/blob/master/clever/launch/main_camera.launch#L22) file.
 
 
 
