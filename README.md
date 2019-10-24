@@ -54,7 +54,7 @@ Calibration file will be saved in `~/.ros/calibration_<date>_<time>` directory a
 
 Also, you can save all captured images to the calibration folder for further analysis if you specify `save_images` parameter as `true`.
 
-The main goal of calibration - get the calibration file with minimal reprojection error. Typical reprojection error is `0.3`, typical reprojection error for aruco markers is `1.0`.
+The main goal of calibration is to get the calibration file with minimal reprojection error. Typical reprojection error is `0.3`, typical reprojection error for aruco markers is `1.0`.
 
 ## Check calibration
 
@@ -62,7 +62,7 @@ You can check visual quality of calibration by viewing undistorted images from c
 
 Also, you can use [undistortion node](https://github.com/CopterExpress/clever_tools/blob/master/clever_tools/src/undistort_camera.py) from [clever_tools](https://github.com/CopterExpress/clever_tools) package to publish indistorted image to topic. You can view it using web_video_server or rqt_image_view ROS packages.
 
-## Use the calibration
+## Use calibration
 
 Put the calibration file to the required directory for the program which requires it. For example, in the [clever](https://github.com/CopterExpress/clever) package the calibration file should be placed to the [camera_info](https://github.com/CopterExpress/clever/tree/master/clever/camera_info) folder and the path to the calibration file should be specified in the [main_camera.launch](https://github.com/CopterExpress/clever/blob/master/clever/launch/main_camera.launch#L22) file.
 
