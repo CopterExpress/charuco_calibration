@@ -344,6 +344,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    cvDestroyWindow("out");
+
+    cout << "Calibrating..." << endl;
+
     Mat cameraMatrix, distCoeffs;
     vector< Mat > rvecs, tvecs;
     double repError;
@@ -412,26 +416,23 @@ int main(int argc, char *argv[]) {
     cout << "Reprojection error: " << repError << endl;
     cout << "Reprojection error for aruco: " << arucoRepErr << endl;
     cout << "Calibration saved to " << outputFilePath << endl;
-    cout << "Check undistorted sample of first input image. Press any key to exit." << endl;
+    cout << "Check undistorted images from camera. Press esc to exit." << endl;
 
-    if (filteredImages.size() > 1) {
+    while(hasImage) {
+        Mat image, imageUndistorted;
+        image = lastImage.clone();
+        imageUndistorted = image.clone();
 
-        Mat imageCopy = filteredImages[0].clone();
-        if(allIds[0].size() > 0) {
+        undistort(image, imageUndistorted, cameraMatrix, distCoeffs);
 
-            if(allCharucoCorners[0].total() > 0) {
-                aruco::drawDetectedCornersCharuco( imageCopy, allCharucoCorners[0],
-                                                    allCharucoIds[0]);
-            }
+        imshow("Undistorted Sample", imageUndistorted);
+        char key = (char)waitKey(waitTime);
+        if(key == 27) ros::shutdown();
+        ros::spinOnce();
+        if (ros::isShuttingDown())
+        {
+            return 0;
         }
-
-        Mat imageCopyUndistorted = imageCopy.clone();
-
-        undistort(imageCopy, imageCopyUndistorted, cameraMatrix, distCoeffs);
-
-        imshow("Undistorted Sample", imageCopyUndistorted);
-        char key = (char)waitKey(0);
-
     }
 
     return 0;
