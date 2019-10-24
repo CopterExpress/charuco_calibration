@@ -45,6 +45,9 @@ the use of this software, even if advised of the possibility of such damage.
 #include <opencv2/calib3d.hpp>
 #include <opencv2/aruco/charuco.hpp>
 #include <opencv2/imgproc.hpp>
+#include <stdlib.h>
+#include <iomanip>
+#include <sstream>
 
 #include <vector>
 #include <iostream>
@@ -157,6 +160,16 @@ void imageCallback(const sensor_msgs::ImageConstPtr &img)
  */
 int main(int argc, char *argv[]) {
     ros::init(argc, argv, "cv_calib");
+
+    string imgPath;
+
+    // Get current datetime
+    auto t = time(nullptr);
+    auto tm = *localtime(&t);
+    ostringstream oss;
+    oss << "calibration_" << put_time(&tm, "%Y%m%d_%H%M%S");
+    auto datetime = oss.str();
+
     CommandLineParser parser(argc, argv, keys);
     parser.about(about);
     /*
@@ -181,6 +194,14 @@ int main(int argc, char *argv[]) {
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
+    
+    // Make folder with timedate name
+    string folderCreateCommand = "mkdir " + datetime;
+    system(folderCreateCommand.c_str());
+    
+    // Get output filepath
+    oss << "/" << outputFile;
+    auto outputFilePath = oss.str();
 
     bool showChessboardCorners = true;
 
@@ -243,6 +264,8 @@ int main(int argc, char *argv[]) {
         ros::spinOnce();
     }
 
+    int imgCounter = 1;
+
     while(hasImage) {
         Mat image, imageCopy;
         image = lastImage.clone();
@@ -290,11 +313,14 @@ int main(int argc, char *argv[]) {
         if(key == 27) break;
         if(key == 'c' && (ids.size() > 0)) {
             if (allowCapture) {
-                cout << "Frame captured" << endl;
+                cout << "Frame captured and saved" << endl;
                 allCorners.push_back(corners);
                 allIds.push_back(ids);
                 allImgs.push_back(image);
                 imgSize = image.size();
+                imgPath = datetime + "/" + to_string(imgCounter) + ".png";
+                imwrite(imgPath.c_str(), imageCopy);
+                imgCounter++;
             }
             else {
                 cout << "Frame rejected" << endl;
@@ -370,7 +396,7 @@ int main(int argc, char *argv[]) {
         aruco::calibrateCameraCharuco(allCharucoCorners, allCharucoIds, charucoboard, imgSize,
                                       cameraMatrix, distCoeffs, rvecs, tvecs, calibrationFlags);
 
-    bool saveOk =  saveCameraParams(outputFile, imgSize, aspectRatio, calibrationFlags,
+    bool saveOk =  saveCameraParams(outputFilePath, imgSize, aspectRatio, calibrationFlags,
                                     cameraMatrix, distCoeffs, repError);
     if(!saveOk) {
         cerr << "Cannot save output file" << endl;
@@ -379,7 +405,7 @@ int main(int argc, char *argv[]) {
 
     cout << "Reprojection error: " << repError << endl;
     cout << "Reprojection error for aruco: " << arucoRepErr << endl;
-    cout << "Calibration saved to " << outputFile << endl;
+    cout << "Calibration saved to " << outputFilePath << endl;
     cout << "Check undistorted sample of first input image. Press any key to exit." << endl;
 
     if (filteredImages.size() > 1) {
