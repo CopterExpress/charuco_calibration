@@ -193,6 +193,7 @@ int main(int argc, char *argv[]) {
     float squareLength = nhPriv.param("square_length", 0.021);
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
+    bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
     
     // Make folder with timedate name
@@ -267,7 +268,7 @@ int main(int argc, char *argv[]) {
     int imgCounter = 1;
 
     while(hasImage) {
-        Mat image, imageCopy;
+        Mat image, imageCopy, imageToSave;
         image = lastImage.clone();
 
         vector< int > ids;
@@ -292,6 +293,9 @@ int main(int argc, char *argv[]) {
         if(currentCharucoCorners.total() > 0)
             aruco::drawDetectedCornersCharuco(imageCopy, currentCharucoCorners, currentCharucoIds);
 
+        if (saveCalibrationImages)
+            imageCopy.copyTo(imageToSave); 
+
         for(const auto& frameCorner : allCorners)
         {
             for(const auto& innerFrameCorner : frameCorner)
@@ -313,13 +317,15 @@ int main(int argc, char *argv[]) {
         if(key == 27) break;
         if(key == 'c' && (ids.size() > 0)) {
             if (allowCapture) {
-                cout << "Frame captured and saved" << endl;
+                cout << "Frame " << imgCounter << " captured and saved" << endl;
                 allCorners.push_back(corners);
                 allIds.push_back(ids);
                 allImgs.push_back(image);
                 imgSize = image.size();
-                imgPath = datetime + "/" + to_string(imgCounter) + ".png";
-                imwrite(imgPath.c_str(), imageCopy);
+                if (saveCalibrationImages) {
+                    imgPath = datetime + "/" + to_string(imgCounter) + ".png";
+                    imwrite(imgPath.c_str(), imageToSave);
+                }
                 imgCounter++;
             }
             else {
