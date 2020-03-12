@@ -98,7 +98,9 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
     fs["minCornerDistanceRate"] >> params->minCornerDistanceRate;
     fs["minDistanceToBorder"] >> params->minDistanceToBorder;
     fs["minMarkerDistanceRate"] >> params->minMarkerDistanceRate;
+#if (CV_VERSION_MAJOR == 3) && (CV_VERSION_MIDOR >= 3)
     fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
+#endif
     fs["cornerRefinementWinSize"] >> params->cornerRefinementWinSize;
     fs["cornerRefinementMaxIterations"] >> params->cornerRefinementMaxIterations;
     fs["cornerRefinementMinAccuracy"] >> params->cornerRefinementMinAccuracy;
