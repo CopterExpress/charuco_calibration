@@ -194,6 +194,7 @@ int main(int argc, char *argv[]) {
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
+    bool saveCleanImages = nhPriv.param<bool>("save_clean", false);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
     
     // Make folder with timedate name
@@ -324,7 +325,11 @@ int main(int argc, char *argv[]) {
                 imgSize = image.size();
                 if (saveCalibrationImages) {
                     imgPath = datetime + "/" + to_string(imgCounter) + ".png";
-                    imwrite(imgPath.c_str(), imageToSave);
+                    if (saveCleanImages) {
+                        imwrite(imgPath.c_str(), image);
+                    } else {
+                        imwrite(imgPath.c_str(), imageToSave);
+                    }
                 }
                 imgCounter++;
             }
