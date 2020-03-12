@@ -86,7 +86,7 @@ const char* keys  =
  */
 static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameters> &params) {
     FileStorage fs(filename, FileStorage::READ);
-    if(!fs.isOpened())
+    if (!fs.isOpened())
         return false;
     fs["adaptiveThreshWinSizeMin"] >> params->adaptiveThreshWinSizeMin;
     fs["adaptiveThreshWinSizeMax"] >> params->adaptiveThreshWinSizeMax;
@@ -98,7 +98,7 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
     fs["minCornerDistanceRate"] >> params->minCornerDistanceRate;
     fs["minDistanceToBorder"] >> params->minDistanceToBorder;
     fs["minMarkerDistanceRate"] >> params->minMarkerDistanceRate;
-    fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
+    //fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
     fs["cornerRefinementWinSize"] >> params->cornerRefinementWinSize;
     fs["cornerRefinementMaxIterations"] >> params->cornerRefinementMaxIterations;
     fs["cornerRefinementMinAccuracy"] >> params->cornerRefinementMinAccuracy;
@@ -118,7 +118,7 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
 static bool saveCameraParams(const string &filename, Size imageSize, float aspectRatio, int flags,
                              const Mat &cameraMatrix, const Mat &distCoeffs, double totalAvgErr) {
     FileStorage fs(filename, FileStorage::WRITE);
-    if(!fs.isOpened())
+    if (!fs.isOpened())
         return false;
 
     Mat rectificationMatrix, projectionMatrix;
@@ -170,21 +170,6 @@ int main(int argc, char *argv[]) {
     oss << "calibration_" << put_time(&tm, "%Y%m%d_%H%M%S");
     auto datetime = oss.str();
 
-    CommandLineParser parser(argc, argv, keys);
-    parser.about(about);
-    /*
-    if(argc < 7) {
-        parser.printMessage();
-        return 0;
-    } */
-
-    /* int squaresX = parser.get<int>("w");
-    int squaresY = parser.get<int>("h");
-    float squareLength = parser.get<float>("sl");
-    float markerLength = parser.get<float>("ml");
-    int dictionaryId = parser.get<int>("d");
-    string outputFile = parser.get<string>(0); */
-
     ros::NodeHandle nh;
     ros::NodeHandle nhPriv("~");
 
@@ -194,6 +179,7 @@ int main(int argc, char *argv[]) {
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
+    bool refindDetected = nhPriv.param<bool>("refind_method", false);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
     
     // Make folder with timedate name
@@ -208,24 +194,9 @@ int main(int argc, char *argv[]) {
 
     int calibrationFlags = CALIB_RATIONAL_MODEL;
     float aspectRatio = 1;
-    /*if(parser.has("a")) {
-        calibrationFlags |= CALIB_FIX_ASPECT_RATIO;
-        aspectRatio = parser.get<float>("a");
-    }
-    if(parser.get<bool>("zt")) calibrationFlags |= CALIB_ZERO_TANGENT_DIST;
-    if(parser.get<bool>("pc")) calibrationFlags |= CALIB_FIX_PRINCIPAL_POINT;*/
 
     Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
-    if(parser.has("dp")) {
-        bool readOk = readDetectorParameters(parser.get<string>("dp"), detectorParams);
-        if(!readOk) {
-            cerr << "Invalid detector parameters file" << endl;
-            return 0;
-        }
-    }
 
-    bool refindStrategy = parser.get<bool>("rs");
-    int camId = parser.get<int>("ci");
     String video;
 
     //image_transport::TransportHints hints("compressed", ros::TransportHints());
@@ -278,19 +249,19 @@ int main(int argc, char *argv[]) {
         aruco::detectMarkers(image, dictionary, corners, ids, detectorParams, rejected);
 
         // refind strategy to detect more markers
-        if(refindStrategy) aruco::refineDetectedMarkers(image, board, corners, ids, rejected);
+        if (refindDetected) aruco::refineDetectedMarkers(image, board, corners, ids, rejected);
 
         // interpolate charuco corners
         Mat currentCharucoCorners, currentCharucoIds;
-        if(ids.size() > 0)
+        if (ids.size() > 0)
             aruco::interpolateCornersCharuco(corners, ids, image, charucoboard, currentCharucoCorners,
                                              currentCharucoIds);
 
         // draw results
         image.copyTo(imageCopy);
-        if(ids.size() > 0) aruco::drawDetectedMarkers(imageCopy, corners);
+        if (ids.size() > 0) aruco::drawDetectedMarkers(imageCopy, corners);
 
-        if(currentCharucoCorners.total() > 0)
+        if (currentCharucoCorners.total() > 0)
             aruco::drawDetectedCornersCharuco(imageCopy, currentCharucoCorners, currentCharucoIds);
 
         if (saveCalibrationImages)
@@ -314,8 +285,12 @@ int main(int argc, char *argv[]) {
 
         imshow("out", imageCopy);
         char key = (char)waitKey(waitTime);
-        if(key == 27) break;
-        if(key == 'c' && (ids.size() > 0)) {
+        if (key == 27) break;
+        else if (key == 'r') {
+            if (refindDetected) refindDetected = false;
+            else refindDetected = true;
+        }
+        if (key == 'c' && (ids.size() > 0)) {
             if (allowCapture) {
                 cout << "Frame " << imgCounter << " captured and saved" << endl;
                 allCorners.push_back(corners);
@@ -339,7 +314,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if(allIds.size() < 1) {
+    if (allIds.size() < 1) {
         cerr << "Not enough captures for calibration" << endl;
         return 0;
     }
@@ -352,7 +327,7 @@ int main(int argc, char *argv[]) {
     vector< Mat > rvecs, tvecs;
     double repError;
 
-    if(calibrationFlags & CALIB_FIX_ASPECT_RATIO) {
+    if (calibrationFlags & CALIB_FIX_ASPECT_RATIO) {
         cameraMatrix = Mat::eye(3, 3, CV_64F);
         cameraMatrix.at< double >(0, 0) = aspectRatio;
     }
@@ -396,7 +371,7 @@ int main(int argc, char *argv[]) {
         filteredImages.push_back(allImgs[i]);
     }
 
-    if(allCharucoCorners.size() < 4) {
+    if (allCharucoCorners.size() < 4) {
         cerr << "Not enough corners for calibration" << endl;
         return 0;
     }
@@ -408,7 +383,7 @@ int main(int argc, char *argv[]) {
 
     bool saveOk =  saveCameraParams(outputFilePath, imgSize, aspectRatio, calibrationFlags,
                                     cameraMatrix, distCoeffs, repError);
-    if(!saveOk) {
+    if (!saveOk) {
         cerr << "Cannot save output file" << endl;
         return 0;
     }
@@ -427,7 +402,7 @@ int main(int argc, char *argv[]) {
 
         imshow("Undistorted Sample", imageUndistorted);
         char key = (char)waitKey(waitTime);
-        if(key == 27) ros::shutdown();
+        if (key == 27) ros::shutdown();
         ros::spinOnce();
         if (ros::isShuttingDown())
         {
@@ -436,4 +411,8 @@ int main(int argc, char *argv[]) {
     }
 
     return 0;
+}
+
+int marker_processing() {
+
 }
