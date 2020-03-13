@@ -48,6 +48,7 @@ the use of this software, even if advised of the possibility of such damage.
 #include <stdlib.h>
 #include <iomanip>
 #include <sstream>
+#include <dirent.h>
 
 #include <vector>
 #include <iostream>
@@ -84,7 +85,7 @@ const char* keys  =
 
 /**
  */
-static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameters> &params) {
+static bool readDetectorParameters(std::string filename, Ptr<aruco::DetectorParameters> &params) {
     FileStorage fs(filename, FileStorage::READ);
     if(!fs.isOpened())
         return false;
@@ -98,7 +99,7 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
     fs["minCornerDistanceRate"] >> params->minCornerDistanceRate;
     fs["minDistanceToBorder"] >> params->minDistanceToBorder;
     fs["minMarkerDistanceRate"] >> params->minMarkerDistanceRate;
-    fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
+    //fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
     fs["cornerRefinementWinSize"] >> params->cornerRefinementWinSize;
     fs["cornerRefinementMaxIterations"] >> params->cornerRefinementMaxIterations;
     fs["cornerRefinementMinAccuracy"] >> params->cornerRefinementMinAccuracy;
@@ -115,7 +116,7 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
 
 /**
  */
-static bool saveCameraParams(const string &filename, Size imageSize, float aspectRatio, int flags,
+static bool saveCameraParams(const std::string &filename, Size imageSize, float aspectRatio, int flags,
                              const Mat &cameraMatrix, const Mat &distCoeffs, double totalAvgErr) {
     FileStorage fs(filename, FileStorage::WRITE);
     if(!fs.isOpened())
@@ -149,6 +150,8 @@ static bool saveCameraParams(const string &filename, Size imageSize, float aspec
 cv::Mat lastImage;
 bool hasImage = false;
 
+std::string directoryPath;
+
 void imageCallback(const sensor_msgs::ImageConstPtr &img)
 {
     cv_bridge::CvImagePtr cv_img = cv_bridge::toCvCopy(img);
@@ -156,34 +159,85 @@ void imageCallback(const sensor_msgs::ImageConstPtr &img)
     hasImage = true;
 }
 
-/**
- */
+Ptr<aruco::Board> board;
+Ptr<aruco::CharucoBoard> charucoboard;
+Ptr<aruco::Dictionary> dictionary;
+Ptr<aruco::DetectorParameters> detectorParams;
+
+struct arucoDetectResults_s
+{
+    vector< int > ids;
+    vector< vector< Point2f > > corners, rejected;
+    Mat currentCharucoCorners, currentCharucoIds;
+};
+
+struct summaryArucoDetectResults_s
+{
+    vector< vector< vector< Point2f > > > corners;
+    vector< vector< int > > ids;
+    vector< Mat > imgs;
+};
+
+
+void detectMarkersProcessing(const Mat &_image, arucoDetectResults_s &detectedResults, const bool refindStrategy) {
+
+    // detect markers
+    aruco::detectMarkers(_image, dictionary, detectedResults.corners, detectedResults.ids, detectorParams, detectedResults.rejected);
+
+    // refind strategy to detect more markers
+    if(refindStrategy) aruco::refineDetectedMarkers(_image, board, detectedResults.corners, detectedResults.ids, detectedResults.rejected);
+
+    // interpolate charuco corners
+    if(detectedResults.ids.size() > 0)
+        aruco::interpolateCornersCharuco(detectedResults.corners, detectedResults.ids, _image, charucoboard, detectedResults.currentCharucoCorners,
+                                         detectedResults.currentCharucoIds);
+}
+
+void drawResults(Mat &image, arucoDetectResults_s detectResults, const vector< vector< vector< Point2f > > > allCorners) {
+    if(detectResults.ids.size() > 0) aruco::drawDetectedMarkers(image, detectResults.corners);
+
+    if(detectResults.currentCharucoCorners.total() > 0)
+        aruco::drawDetectedCornersCharuco(image, detectResults.currentCharucoCorners, detectResults.currentCharucoIds);
+
+    for(const auto& frameCorner : allCorners)
+    {
+        for(const auto& innerFrameCorner : frameCorner)
+        {
+            for(const auto& inFrameCorner : innerFrameCorner)
+            {
+                cv::circle(image, inFrameCorner, 1, cv::Scalar(255, 0, 0));
+            }
+        }
+    }
+}
+
+void processArucoDetectResults(const Mat &image, const arucoDetectResults_s detectedResults, summaryArucoDetectResults_s &summaryDetectResults,
+                               const int imgCounter) {
+    bool allowCapture = (detectedResults.corners.size() > 0) && (detectedResults.ids.size() > 0);
+
+    if (allowCapture) {
+        cout << "Frame " << imgCounter << " captured" << endl;
+        summaryDetectResults.corners.push_back(detectedResults.corners);
+        summaryDetectResults.ids.push_back(detectedResults.ids);
+        summaryDetectResults.imgs.push_back(image);
+    }
+    else {
+        cout << "Frame rejected" << endl;
+    }
+}
+
+void saveImage(const Mat &image, const bool saveCalibrationImages, const bool saveClean, int &imgCounter) {
+        if (saveCalibrationImages) {
+            cout << "Frame " << imgCounter << " saved" << endl;
+            std::string imgPath = directoryPath + "/" + to_string(imgCounter) + ".png";
+            if (saveClean) imwrite(imgPath.c_str(), image);
+            else imwrite(imgPath.c_str(), image);
+        }
+        imgCounter++;
+}
+
 int main(int argc, char *argv[]) {
     ros::init(argc, argv, "cv_calib");
-
-    string imgPath;
-
-    // Get current datetime
-    auto t = time(nullptr);
-    auto tm = *localtime(&t);
-    ostringstream oss;
-    oss << "calibration_" << put_time(&tm, "%Y%m%d_%H%M%S");
-    auto datetime = oss.str();
-
-    CommandLineParser parser(argc, argv, keys);
-    parser.about(about);
-    /*
-    if(argc < 7) {
-        parser.printMessage();
-        return 0;
-    } */
-
-    /* int squaresX = parser.get<int>("w");
-    int squaresY = parser.get<int>("h");
-    float squareLength = parser.get<float>("sl");
-    float markerLength = parser.get<float>("ml");
-    int dictionaryId = parser.get<int>("d");
-    string outputFile = parser.get<string>(0); */
 
     ros::NodeHandle nh;
     ros::NodeHandle nhPriv("~");
@@ -193,58 +247,57 @@ int main(int argc, char *argv[]) {
     float squareLength = nhPriv.param("square_length", 0.021);
     float markerLength = nhPriv.param("marker_length", 0.013);
     int dictionaryId = nhPriv.param("dictionary_id", 4);
+
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
-    string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
-    
+    bool saveClean = nhPriv.param<bool>("save_clean", false);
+    bool refindStrategy = nhPriv.param<bool>("refind_markers", false);
+    std::string calibrationSet = nhPriv.param<std::string>("calibration_set", "");
+    std::string imagesFormat = nhPriv.param<std::string>("images_format", ".png");
+    bool imageVerification = nhPriv.param<bool>("image_verification", false);
+    int calibrationFlag = nhPriv.param("calibration_model", 0x04000);    
+    std::string outputPath = nhPriv.param<std::string>("output_path", ".");
+
+    // Get current datetime
+    auto t = time(nullptr);
+    auto tm = *localtime(&t);
+    char time[50];
+    std::strftime(time, 50, "%Y%m%d_%H%M%S", &tm);
+    directoryPath = outputPath + "/calibration_" + time;
+
     // Make folder with timedate name
-    string folderCreateCommand = "mkdir " + datetime;
+    std::string folderCreateCommand = "mkdir " + directoryPath;
     system(folderCreateCommand.c_str());
     
     // Get output filepath
-    oss << "/" << outputFile;
-    auto outputFilePath = oss.str();
+    std::string outputFilePath = directoryPath + "/" + "calibration.yaml";
+    cout << outputFilePath << endl;
 
     bool showChessboardCorners = true;
 
-    int calibrationFlags = CALIB_RATIONAL_MODEL;
     float aspectRatio = 1;
-    /*if(parser.has("a")) {
-        calibrationFlags |= CALIB_FIX_ASPECT_RATIO;
-        aspectRatio = parser.get<float>("a");
-    }
-    if(parser.get<bool>("zt")) calibrationFlags |= CALIB_ZERO_TANGENT_DIST;
-    if(parser.get<bool>("pc")) calibrationFlags |= CALIB_FIX_PRINCIPAL_POINT;*/
 
-    Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
-    if(parser.has("dp")) {
-        bool readOk = readDetectorParameters(parser.get<string>("dp"), detectorParams);
-        if(!readOk) {
-            cerr << "Invalid detector parameters file" << endl;
-            return 0;
-        }
-    }
-
-    bool refindStrategy = parser.get<bool>("rs");
-    int camId = parser.get<int>("ci");
-    String video;
+    detectorParams = aruco::DetectorParameters::create();
 
     //image_transport::TransportHints hints("compressed", ros::TransportHints());
     image_transport::ImageTransport it(nh);
     image_transport::ImageTransport itPriv(nhPriv);
 
     int waitTime = 10;
-    ROS_INFO("Subscribing to image topic");
-    auto sub = it.subscribe("image", 1, imageCallback /*, hints */);
     ROS_INFO("Advertising charuco board image");
     auto pub = it.advertise("board", 1, true);
-
-    Ptr<aruco::Dictionary> dictionary =
-        aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionaryId));
+    ROS_INFO("Subscribing to image topic");
+    auto sub = it.subscribe("image", 1, imageCallback /*, hints */);
+    
+    while(!hasImage)
+    {
+        ros::spinOnce();
+    }
+    
+    dictionary = aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionaryId));
 
     // create charuco board object
-    Ptr<aruco::CharucoBoard> charucoboard =
-            aruco::CharucoBoard::create(squaresX, squaresY, squareLength, markerLength, dictionary);
-    Ptr<aruco::Board> board = charucoboard.staticCast<aruco::Board>();
+    charucoboard = aruco::CharucoBoard::create(squaresX, squaresY, squareLength, markerLength, dictionary);
+    board = charucoboard.staticCast<aruco::Board>();
 
     cv::Mat boardImg(2048, 1536, CV_8UC3);
     charucoboard->draw(boardImg.size(), boardImg, 100);
@@ -255,96 +308,108 @@ int main(int argc, char *argv[]) {
     pub.publish(boardImgBridge.toImageMsg());
 
     // collect data from each frame
-    vector< vector< vector< Point2f > > > allCorners;
-    vector< vector< int > > allIds;
-    vector< Mat > allImgs;
+    summaryArucoDetectResults_s summaryDetectResults;
     Size imgSize;
-
-    while(!hasImage)
-    {
-        ros::spinOnce();
-    }
 
     int imgCounter = 1;
 
-    while(hasImage) {
-        Mat image, imageCopy, imageToSave;
-        image = lastImage.clone();
+    if (calibrationSet == "") {
+        while(hasImage) {
+            Mat image, imageCopy, imageToSave;
+            image = lastImage.clone();
 
-        vector< int > ids;
-        vector< vector< Point2f > > corners, rejected;
+            arucoDetectResults_s detectedResults;
+            detectMarkersProcessing(image, detectedResults, refindStrategy);
 
-        // detect markers
-        aruco::detectMarkers(image, dictionary, corners, ids, detectorParams, rejected);
+            // draw results
+            image.copyTo(imageCopy);
+            drawResults(imageCopy, detectedResults, summaryDetectResults.corners);
 
-        // refind strategy to detect more markers
-        if(refindStrategy) aruco::refineDetectedMarkers(image, board, corners, ids, rejected);
+            putText(imageCopy, "Press 'c' to add current frame. 'ESC' to finish and calibrate",
+                    Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 0), 2);
 
-        // interpolate charuco corners
-        Mat currentCharucoCorners, currentCharucoIds;
-        if(ids.size() > 0)
-            aruco::interpolateCornersCharuco(corners, ids, image, charucoboard, currentCharucoCorners,
-                                             currentCharucoIds);
+            imshow("Out", imageCopy);
 
-        // draw results
-        image.copyTo(imageCopy);
-        if(ids.size() > 0) aruco::drawDetectedMarkers(imageCopy, corners);
-
-        if(currentCharucoCorners.total() > 0)
-            aruco::drawDetectedCornersCharuco(imageCopy, currentCharucoCorners, currentCharucoIds);
-
-        if (saveCalibrationImages)
-            imageCopy.copyTo(imageToSave); 
-
-        for(const auto& frameCorner : allCorners)
-        {
-            for(const auto& innerFrameCorner : frameCorner)
+            char key = (char)waitKey(waitTime);
+            if (key == 27) break;
+            if (key == 'r') {
+                if (refindStrategy) refindStrategy = false;
+                else refindStrategy = true;
+            }
+            if(key == 'c' && (detectedResults.ids.size() > 0)) {
+                if (imgSize.height == 0) imgSize = image.size();
+                processArucoDetectResults(image, detectedResults, summaryDetectResults, imgCounter);
+                saveImage(image, saveCalibrationImages, saveClean, imgCounter);
+            }
+            ros::spinOnce();
+            if (ros::isShuttingDown())
             {
-                for(const auto& inFrameCorner : innerFrameCorner)
-                {
-                    cv::circle(imageCopy, inFrameCorner, 1, cv::Scalar(255, 0, 0));
-                }
+                return 0;
             }
         }
 
-        putText(imageCopy, "Press 'c' to add current frame. 'ESC' to finish and calibrate",
-                Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 0), 2);
-
-        bool allowCapture = (corners.size() > 0) && (ids.size() > 0);
-
-        imshow("out", imageCopy);
-        char key = (char)waitKey(waitTime);
-        if(key == 27) break;
-        if(key == 'c' && (ids.size() > 0)) {
-            if (allowCapture) {
-                cout << "Frame " << imgCounter << " captured and saved" << endl;
-                allCorners.push_back(corners);
-                allIds.push_back(ids);
-                allImgs.push_back(image);
-                imgSize = image.size();
-                if (saveCalibrationImages) {
-                    imgPath = datetime + "/" + to_string(imgCounter) + ".png";
-                    imwrite(imgPath.c_str(), imageToSave);
-                }
-                imgCounter++;
-            }
-            else {
-                cout << "Frame rejected" << endl;
-            }
-        }
-        ros::spinOnce();
-        if (ros::isShuttingDown())
-        {
+        if(summaryDetectResults.ids.size() < 4) {
+            cerr << "Not enough captures for calibration" << endl;
             return 0;
         }
-    }
 
-    if(allIds.size() < 1) {
-        cerr << "Not enough captures for calibration" << endl;
-        return 0;
-    }
+        cvDestroyWindow("Out");
+    } else {
+        cout << "Calibrate from directory" << endl;
+        
+        Mat image, imageCopy;
+        DIR *dir;
+        struct dirent *ent;
+        
+        if ((dir = opendir (calibrationSet.c_str())) != NULL) {
+            while ((ent = readdir (dir)) != NULL) {
+                std::string file_name = ent->d_name;
 
-    cvDestroyWindow("out");
+                /*Check the file is an image*/
+                if (std::search(file_name.cbegin(), file_name.cend(), imagesFormat.cbegin(), imagesFormat.cend()) != file_name.cend()) {
+                    arucoDetectResults_s detectedResults;
+                    if (imgSize.height == 0) imgSize = image.size();
+
+                    file_name = calibrationSet + file_name;
+                    image = cv::imread(file_name);
+                    detectMarkersProcessing(image, detectedResults, refindStrategy);
+
+                    if (imageVerification) {
+                        while (true) {
+                            image.copyTo(imageCopy);
+                            putText(imageCopy, "Press 'n' to use this image for calibration, 'n' to skip. 'ESC' to exit",
+                                    Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 0), 2);
+                            drawResults(imageCopy, detectedResults, summaryDetectResults.corners);
+
+                            imshow("Checked image", imageCopy);
+
+                            char key = (char)waitKey();
+                            if (key == 'y') {
+                                processArucoDetectResults(image, detectedResults, summaryDetectResults, imgCounter);
+                                saveImage(image, saveCalibrationImages, saveClean, imgCounter);
+                                break;
+                            } else if (key == 'n') {
+                                break;
+                            } else if (key == 27) {
+                                return 0;
+                            } else { 
+                                continue;
+                            }
+                        }
+                    } else {
+                        processArucoDetectResults(image, detectedResults, summaryDetectResults, imgCounter);
+                        saveImage(image, saveCalibrationImages, saveClean, imgCounter);
+                    }
+                }
+            }
+            closedir (dir);
+        } else {
+            /* could not open directory */
+            cout << "Error while opening calibration image directory" << endl;
+            return EXIT_FAILURE;
+        }
+        cvDestroyWindow("Checked image");
+    }
 
     cout << "Calibrating..." << endl;
 
@@ -352,7 +417,7 @@ int main(int argc, char *argv[]) {
     vector< Mat > rvecs, tvecs;
     double repError;
 
-    if(calibrationFlags & CALIB_FIX_ASPECT_RATIO) {
+    if(calibrationFlag & CALIB_FIX_ASPECT_RATIO) {
         cameraMatrix = Mat::eye(3, 3, CV_64F);
         cameraMatrix.at< double >(0, 0) = aspectRatio;
     }
@@ -361,12 +426,12 @@ int main(int argc, char *argv[]) {
     vector< vector< Point2f > > allCornersConcatenated;
     vector< int > allIdsConcatenated;
     vector< int > markerCounterPerFrame;
-    markerCounterPerFrame.reserve(allCorners.size());
-    for(unsigned int i = 0; i < allCorners.size(); i++) {
-        markerCounterPerFrame.push_back((int)allCorners[i].size());
-        for(unsigned int j = 0; j < allCorners[i].size(); j++) {
-            allCornersConcatenated.push_back(allCorners[i][j]);
-            allIdsConcatenated.push_back(allIds[i][j]);
+    markerCounterPerFrame.reserve(summaryDetectResults.corners.size());
+    for(unsigned int i = 0; i < summaryDetectResults.corners.size(); i++) {
+        markerCounterPerFrame.push_back((int)summaryDetectResults.corners[i].size());
+        for(unsigned int j = 0; j < summaryDetectResults.corners[i].size(); j++) {
+            allCornersConcatenated.push_back(summaryDetectResults.corners[i][j]);
+            allIdsConcatenated.push_back(summaryDetectResults.ids[i][j]);
         }
     }
 
@@ -374,10 +439,10 @@ int main(int argc, char *argv[]) {
     double arucoRepErr;
     arucoRepErr = aruco::calibrateCameraAruco(allCornersConcatenated, allIdsConcatenated,
                                               markerCounterPerFrame, board, imgSize, cameraMatrix,
-                                              distCoeffs, noArray(), noArray(), calibrationFlags);
+                                              distCoeffs, noArray(), noArray(), calibrationFlag);
 
     // prepare data for charuco calibration
-    int nFrames = (int)allCorners.size();
+    int nFrames = (int)summaryDetectResults.corners.size();
     vector< Mat > allCharucoCorners;
     vector< Mat > allCharucoIds;
     vector< Mat > filteredImages;
@@ -387,13 +452,13 @@ int main(int argc, char *argv[]) {
     for(int i = 0; i < nFrames; i++) {
         // interpolate using camera parameters
         Mat currentCharucoCorners, currentCharucoIds;
-        aruco::interpolateCornersCharuco(allCorners[i], allIds[i], allImgs[i], charucoboard,
+        aruco::interpolateCornersCharuco(summaryDetectResults.corners[i], summaryDetectResults.ids[i], summaryDetectResults.imgs[i], charucoboard,
                                          currentCharucoCorners, currentCharucoIds, cameraMatrix,
                                          distCoeffs);
 
         allCharucoCorners.push_back(currentCharucoCorners);
         allCharucoIds.push_back(currentCharucoIds);
-        filteredImages.push_back(allImgs[i]);
+        filteredImages.push_back(summaryDetectResults.imgs[i]);
     }
 
     if(allCharucoCorners.size() < 4) {
@@ -404,9 +469,9 @@ int main(int argc, char *argv[]) {
     // calibrate camera using charuco
     repError =
         aruco::calibrateCameraCharuco(allCharucoCorners, allCharucoIds, charucoboard, imgSize,
-                                      cameraMatrix, distCoeffs, rvecs, tvecs, calibrationFlags);
+                                      cameraMatrix, distCoeffs, rvecs, tvecs, calibrationFlag);
 
-    bool saveOk =  saveCameraParams(outputFilePath, imgSize, aspectRatio, calibrationFlags,
+    bool saveOk =  saveCameraParams(outputFilePath, imgSize, aspectRatio, calibrationFlag,
                                     cameraMatrix, distCoeffs, repError);
     if(!saveOk) {
         cerr << "Cannot save output file" << endl;

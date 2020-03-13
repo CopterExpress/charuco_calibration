@@ -1,0 +1,14 @@
+<launch>
+
+    <node pkg="charuco_calibration" name="charuco_calibration" type="charuco_calibration_node" output="screen">
+        <remap from="image" to="main_camera/image_raw"/>
+        <param name="square_length" value="0.028875" />
+        <param name="marker_length" value="0.0175"/>
+        <param name="calibration_set" value="$(find charuco_calibration)/calibrate/"/>
+        <param name="image_verification" value="true"/>
+        <param name="calibration_model" value=""/>
+        <param name="output_path" value="$(find charuco_calibration)/"/>
+        <param name="save_images" value="true"/>
+    </node>
+
+</launch>
