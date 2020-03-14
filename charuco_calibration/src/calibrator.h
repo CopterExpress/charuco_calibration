@@ -1,6 +1,5 @@
 #pragma once
 
-#include <opencv2/highgui.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/aruco/charuco.hpp>
 #include <opencv2/imgproc.hpp>
@@ -58,6 +57,8 @@ struct CalibratorDetectionResult
 /** Camera calibration result */
 struct CalibrationResult
 {
+    /* Camera resolution */
+    cv::Size imgSize;
     /* Intrinsic camera matrix */
     cv::Mat cameraMatrix;
     /* Lens distorion coefficients */
@@ -92,13 +93,15 @@ private:
     CalibratorLogFunction calibLogger;
 
 public:
+    /** Console logging function (the default one) */
     static void consoleLogFunction(LogLevel logLevel, const std::string& message);
+    /** Null logging function (no actual logging will be performed) */
     static void nullLogFunction(LogLevel ll, const std::string& msg)
     {
         std::ignore = ll;
         std::ignore = msg;
     };
-
+    /** Set logging function */
     void setLogger(CalibratorLogFunction& logFcn)
     {
         calibLogger = logFcn;
@@ -124,7 +127,7 @@ public:
     void applyParams();
 
     Calibrator();
-    ~Calibrator();
+    ~Calibrator() {};
 
     /** Get cv::Mat with the board image */
     cv::Mat getBoardImage(int width, int height, int margin=0)
