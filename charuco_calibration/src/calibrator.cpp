@@ -112,6 +112,7 @@ cv::Mat Calibrator::drawDetectionResults(const CalibratorDetectionResult& detect
     cv::Mat resultImage = detectionResult.sourceImage.clone();
     if (detectionResult.isValid())
     {
+        cv::aruco::drawDetectedMarkers(resultImage, detectionResult.corners);
         cv::aruco::drawDetectedCornersCharuco(resultImage,
             detectionResult.charucoCorners,
             detectionResult.charucoIds);
@@ -145,7 +146,7 @@ CalibrationResult Calibrator::performCalibration()
         result.cameraMatrix.at<double>(0, 0) = params.aspectRatio;
     }
     */
-    calibLogger(LogLevel::INFO, "Starting calibration");
+    calibLogger(LogLevel::INFO, "Starting calibration with " + std::to_string(allImgs.size()) + " images");
     if (allImgs.size() < 1)
     {
         calibLogger(LogLevel::ERROR, "Not enough images to perform calibration");
@@ -220,6 +221,10 @@ CalibrationResult Calibrator::performCalibration()
         allCharucoCorners, allCharucoIds, charucoBoard, imgSize,
         result.cameraMatrix, result.distCoeffs, result.rvecs, result.tvecs,
         params.calibrationFlags);
+
+    calibLogger(LogLevel::INFO, "Calibration finished; reprojection error: " +
+            std::to_string(result.reprojectionError) + ", ArUco reprojection error: " +
+            std::to_string(result.arucoReprojectionError));
 
     calibLogger(LogLevel::INFO, "All done");
     return result;
