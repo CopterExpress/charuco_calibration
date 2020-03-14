@@ -36,6 +36,8 @@ or tort (including negligence or otherwise) arising in any way out of
 the use of this software, even if advised of the possibility of such damage.
 */
 
+#include "calibrator.h"
+
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>
@@ -48,6 +50,9 @@ the use of this software, even if advised of the possibility of such damage.
 #include <stdlib.h>
 #include <iomanip>
 #include <sstream>
+
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <vector>
 #include <iostream>
@@ -148,6 +153,20 @@ static bool saveCameraParams(const string &filename, Size imageSize, float aspec
     return true;
 }
 
+static void readCalibratorParams(charuco_calibration::Calibrator& calibrator, ros::NodeHandle& nh)
+{
+    calibrator.params.squaresX = nh.param("squares_x", 6);
+    calibrator.params.squaresY = nh.param("squares_y", 8);
+    calibrator.params.squareLength = nh.param("square_length", 0.021);
+    calibrator.params.markerLength = nh.param("marker_length", 0.013);
+    calibrator.params.dictionaryId = nh.param("dictionary_id", 4);
+    calibrator.params.performRefinement = nh.param("perform_refinement", false);
+    calibrator.params.drawHistoricalMarkers = nh.param("draw_historical_markers", true);
+    // FIXME: Make flags usage more user-friendly
+    calibrator.params.calibrationFlags = nh.param<int>("calibration_flags_mask", cv::CALIB_RATIONAL_MODEL);
+    calibrator.applyParams();
+}
+
 cv::Mat lastImage;
 bool hasImage = false;
 
@@ -174,61 +193,33 @@ int main(int argc, char *argv[]) {
 
     CommandLineParser parser(argc, argv, keys);
     parser.about(about);
-    /*
-    if(argc < 7) {
-        parser.printMessage();
-        return 0;
-    } */
-
-    /* int squaresX = parser.get<int>("w");
-    int squaresY = parser.get<int>("h");
-    float squareLength = parser.get<float>("sl");
-    float markerLength = parser.get<float>("ml");
-    int dictionaryId = parser.get<int>("d");
-    string outputFile = parser.get<string>(0); */
 
     ros::NodeHandle nh;
     ros::NodeHandle nhPriv("~");
 
-    int squaresX = nhPriv.param("squares_x", 6);
-    int squaresY = nhPriv.param("squares_y", 8);
-    float squareLength = nhPriv.param("square_length", 0.021);
-    float markerLength = nhPriv.param("marker_length", 0.013);
-    int dictionaryId = nhPriv.param("dictionary_id", 4);
+    charuco_calibration::Calibrator calibrator;
+    readCalibratorParams(calibrator, nhPriv);
+
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
     
     // Make folder with timedate name
-    string folderCreateCommand = "mkdir " + datetime;
-    system(folderCreateCommand.c_str());
-    
+    mkdir(datetime.c_str(), 0775);
+
     // Get output filepath
     oss << "/" << outputFile;
     auto outputFilePath = oss.str();
 
     bool showChessboardCorners = true;
 
-    int calibrationFlags = CALIB_RATIONAL_MODEL;
-    float aspectRatio = 1;
-    /*if(parser.has("a")) {
-        calibrationFlags |= CALIB_FIX_ASPECT_RATIO;
-        aspectRatio = parser.get<float>("a");
-    }
-    if(parser.get<bool>("zt")) calibrationFlags |= CALIB_ZERO_TANGENT_DIST;
-    if(parser.get<bool>("pc")) calibrationFlags |= CALIB_FIX_PRINCIPAL_POINT;*/
-
-    Ptr<aruco::DetectorParameters> detectorParams = aruco::DetectorParameters::create();
+    // FIXME: Allow setting detector params from node parameters
     if(parser.has("dp")) {
-        bool readOk = readDetectorParameters(parser.get<string>("dp"), detectorParams);
+        bool readOk = readDetectorParameters(parser.get<string>("dp"), calibrator.arucoDetectorParams);
         if(!readOk) {
             cerr << "Invalid detector parameters file" << endl;
             return 0;
         }
     }
-
-    bool refindStrategy = parser.get<bool>("rs");
-    int camId = parser.get<int>("ci");
-    String video;
 
     //image_transport::TransportHints hints("compressed", ros::TransportHints());
     image_transport::ImageTransport it(nh);
@@ -238,29 +229,15 @@ int main(int argc, char *argv[]) {
     ROS_INFO("Subscribing to image topic");
     auto sub = it.subscribe("image", 1, imageCallback /*, hints */);
     ROS_INFO("Advertising charuco board image");
-    auto pub = it.advertise("board", 1, true);
+    auto pub = nhPriv.advertise<sensor_msgs::Image>("board", 1, true);
 
-    Ptr<aruco::Dictionary> dictionary =
-        aruco::getPredefinedDictionary(aruco::PREDEFINED_DICTIONARY_NAME(dictionaryId));
-
-    // create charuco board object
-    Ptr<aruco::CharucoBoard> charucoboard =
-            aruco::CharucoBoard::create(squaresX, squaresY, squareLength, markerLength, dictionary);
-    Ptr<aruco::Board> board = charucoboard.staticCast<aruco::Board>();
-
-    cv::Mat boardImg(2048, 1536, CV_8UC3);
-    charucoboard->draw(boardImg.size(), boardImg, 100);
+    auto boardImg = calibrator.getBoardImage(2048, 1536, 100);
 
     cv::imwrite("board.png", boardImg);
     cv_bridge::CvImage boardImgBridge;
     boardImgBridge.image = boardImg;
+    boardImgBridge.encoding = sensor_msgs::image_encodings::MONO8;
     pub.publish(boardImgBridge.toImageMsg());
-
-    // collect data from each frame
-    vector< vector< vector< Point2f > > > allCorners;
-    vector< vector< int > > allIds;
-    vector< Mat > allImgs;
-    Size imgSize;
 
     while(!hasImage)
     {
@@ -270,63 +247,25 @@ int main(int argc, char *argv[]) {
     int imgCounter = 1;
 
     while(hasImage) {
-        Mat image, imageCopy, imageToSave;
+        Mat image;
         image = lastImage.clone();
 
-        vector< int > ids;
-        vector< vector< Point2f > > corners, rejected;
+        auto detectionResult = calibrator.processImage(image);
+        auto displayedImage = calibrator.drawDetectionResults(detectionResult);
 
-        // detect markers
-        aruco::detectMarkers(image, dictionary, corners, ids, detectorParams, rejected);
-
-        // refind strategy to detect more markers
-        if(refindStrategy) aruco::refineDetectedMarkers(image, board, corners, ids, rejected);
-
-        // interpolate charuco corners
-        Mat currentCharucoCorners, currentCharucoIds;
-        if(ids.size() > 0)
-            aruco::interpolateCornersCharuco(corners, ids, image, charucoboard, currentCharucoCorners,
-                                             currentCharucoIds);
-
-        // draw results
-        image.copyTo(imageCopy);
-        if(ids.size() > 0) aruco::drawDetectedMarkers(imageCopy, corners);
-
-        if(currentCharucoCorners.total() > 0)
-            aruco::drawDetectedCornersCharuco(imageCopy, currentCharucoCorners, currentCharucoIds);
-
-        if (saveCalibrationImages)
-            imageCopy.copyTo(imageToSave); 
-
-        for(const auto& frameCorner : allCorners)
-        {
-            for(const auto& innerFrameCorner : frameCorner)
-            {
-                for(const auto& inFrameCorner : innerFrameCorner)
-                {
-                    cv::circle(imageCopy, inFrameCorner, 1, cv::Scalar(255, 0, 0));
-                }
-            }
-        }
-
-        putText(imageCopy, "Press 'c' to add current frame. 'ESC' to finish and calibrate",
+        putText(displayedImage, "Press 'c' to add current frame. 'ESC' to finish and calibrate",
                 Point(10, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 0), 2);
 
-        bool allowCapture = (corners.size() > 0) && (ids.size() > 0);
-
-        imshow("out", imageCopy);
+        imshow("out", displayedImage);
         char key = (char)waitKey(waitTime);
         if(key == 27) break;
-        if(key == 'c' && (ids.size() > 0)) {
-            if (allowCapture) {
+        if(key == 'c') {
+            if (detectionResult.isValid()) {
                 cout << "Frame " << imgCounter << " captured and saved" << endl;
-                allCorners.push_back(corners);
-                allIds.push_back(ids);
-                allImgs.push_back(image);
-                imgSize = image.size();
+                calibrator.addToCalibrationList(detectionResult);
                 if (saveCalibrationImages) {
                     imgPath = datetime + "/" + to_string(imgCounter) + ".png";
-                    imwrite(imgPath.c_str(), imageToSave);
+                    imwrite(imgPath.c_str(), image);
                 }
                 imgCounter++;
             }
@@ -341,82 +280,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if(allIds.size() < 1) {
-        cerr << "Not enough captures for calibration" << endl;
-        return 0;
-    }
-
     cvDestroyWindow("out");
 
     cout << "Calibrating..." << endl;
 
-    Mat cameraMatrix, distCoeffs;
-    vector< Mat > rvecs, tvecs;
-    double repError;
+    auto calibResult = calibrator.performCalibration();
 
-    if(calibrationFlags & CALIB_FIX_ASPECT_RATIO) {
-        cameraMatrix = Mat::eye(3, 3, CV_64F);
-        cameraMatrix.at< double >(0, 0) = aspectRatio;
-    }
-
-    // prepare data for calibration
-    vector< vector< Point2f > > allCornersConcatenated;
-    vector< int > allIdsConcatenated;
-    vector< int > markerCounterPerFrame;
-    markerCounterPerFrame.reserve(allCorners.size());
-    for(unsigned int i = 0; i < allCorners.size(); i++) {
-        markerCounterPerFrame.push_back((int)allCorners[i].size());
-        for(unsigned int j = 0; j < allCorners[i].size(); j++) {
-            allCornersConcatenated.push_back(allCorners[i][j]);
-            allIdsConcatenated.push_back(allIds[i][j]);
+    if (calibResult.isValid)
+    {
+        bool saveOk =  saveCameraParams(outputFilePath, 
+            calibResult.imgSize, /* calibrator.params.aspectRatio */ 1.0f,
+            calibrator.params.calibrationFlags,
+            calibResult.cameraMatrix, calibResult.distCoeffs, calibResult.reprojectionError);
+        if(!saveOk) {
+            cerr << "Cannot save output file" << endl;
+            return 0;
         }
+
     }
-
-    // calibrate camera using aruco markers
-    double arucoRepErr;
-    arucoRepErr = aruco::calibrateCameraAruco(allCornersConcatenated, allIdsConcatenated,
-                                              markerCounterPerFrame, board, imgSize, cameraMatrix,
-                                              distCoeffs, noArray(), noArray(), calibrationFlags);
-
-    // prepare data for charuco calibration
-    int nFrames = (int)allCorners.size();
-    vector< Mat > allCharucoCorners;
-    vector< Mat > allCharucoIds;
-    vector< Mat > filteredImages;
-    allCharucoCorners.reserve(nFrames);
-    allCharucoIds.reserve(nFrames);
-
-    for(int i = 0; i < nFrames; i++) {
-        // interpolate using camera parameters
-        Mat currentCharucoCorners, currentCharucoIds;
-        aruco::interpolateCornersCharuco(allCorners[i], allIds[i], allImgs[i], charucoboard,
-                                         currentCharucoCorners, currentCharucoIds, cameraMatrix,
-                                         distCoeffs);
-
-        allCharucoCorners.push_back(currentCharucoCorners);
-        allCharucoIds.push_back(currentCharucoIds);
-        filteredImages.push_back(allImgs[i]);
-    }
-
-    if(allCharucoCorners.size() < 4) {
-        cerr << "Not enough corners for calibration" << endl;
-        return 0;
-    }
-
-    // calibrate camera using charuco
-    repError =
-        aruco::calibrateCameraCharuco(allCharucoCorners, allCharucoIds, charucoboard, imgSize,
-                                      cameraMatrix, distCoeffs, rvecs, tvecs, calibrationFlags);
-
-    bool saveOk =  saveCameraParams(outputFilePath, imgSize, aspectRatio, calibrationFlags,
-                                    cameraMatrix, distCoeffs, repError);
-    if(!saveOk) {
-        cerr << "Cannot save output file" << endl;
-        return 0;
-    }
-
-    cout << "Reprojection error: " << repError << endl;
-    cout << "Reprojection error for aruco: " << arucoRepErr << endl;
+    
     cout << "Calibration saved to " << outputFilePath << endl;
     cout << "Check undistorted images from camera. Press esc to exit." << endl;
 
@@ -425,7 +307,7 @@ int main(int argc, char *argv[]) {
         image = lastImage.clone();
         imageUndistorted = image.clone();
 
-        undistort(image, imageUndistorted, cameraMatrix, distCoeffs);
+        undistort(image, imageUndistorted, calibResult.cameraMatrix, calibResult.distCoeffs);
 
         imshow("Undistorted Sample", imageUndistorted);
         char key = (char)waitKey(waitTime);
