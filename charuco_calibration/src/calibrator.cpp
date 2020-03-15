@@ -202,10 +202,18 @@ CalibrationResult Calibrator::performCalibration()
         cv::aruco::interpolateCornersCharuco(allCorners[i], allIds[i], allImgs[i],
             charucoBoard, currentCharucoCorners, currentCharucoIds,
             result.cameraMatrix, result.distCoeffs);
-
-        allCharucoCorners.push_back(currentCharucoCorners);
-        allCharucoIds.push_back(currentCharucoIds);
-        filteredImages.push_back(allImgs[i]);
+        
+        if (currentCharucoCorners.size().height >= 4)
+        {
+            allCharucoCorners.push_back(currentCharucoCorners);
+            allCharucoIds.push_back(currentCharucoIds);
+            filteredImages.push_back(allImgs[i]);
+        }
+        else
+        {
+            calibLogger(LogLevel::WARN, "Rejecting image #" + std::to_string(i) + ": not enough charuco corners (found " + std::to_string(currentCharucoCorners.size().height) + ")");
+        }
+        
     }
 
     if (allCharucoCorners.size() < 4)
@@ -226,6 +234,7 @@ CalibrationResult Calibrator::performCalibration()
             std::to_string(result.reprojectionError) + ", ArUco reprojection error: " +
             std::to_string(result.arucoReprojectionError));
 
+    result.isValid = true;
     calibLogger(LogLevel::INFO, "All done");
     return result;
 }
