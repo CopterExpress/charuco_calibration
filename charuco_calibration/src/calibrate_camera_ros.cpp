@@ -40,6 +40,7 @@ the use of this software, even if advised of the possibility of such damage.
 
 #include <ros/ros.h>
 #include <sensor_msgs/Image.h>
+#include <sensor_msgs/distortion_models.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 
@@ -57,6 +58,7 @@ the use of this software, even if advised of the possibility of such damage.
 #include <vector>
 #include <iostream>
 #include <ctime>
+#include <fstream>
 
 using namespace std;
 using namespace cv;
@@ -118,39 +120,89 @@ static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameter
     return true;
 }
 
-
+/**
+ * Get ROS-compatible distortion model from calibration result.
+ * 
+ * @param calibration Calibration result, as returned by Calibrator::performCalibration
+ * @return An std::string containing the name of the distortion model as described by REP-104
+ */
+static std::string distortionModelFromResult(const charuco_calibration::CalibrationResult& calibration)
+{
+    // Do the dumb thing for now: count the number of distortion coefficients
+    int numCoeffs = calibration.distCoeffs.size().width;
+    switch (numCoeffs)
+    {
+        // 4 coefficients: probably a fisheye camera?
+        case 4:
+            return sensor_msgs::distortion_models::EQUIDISTANT;
+        // 5 coefficients: simple, 5-parameter polynomial ("Plumb Bob", https://www.ros.org/reps/rep-0104.html#alternate-distortion-models)
+        case 5:
+            return sensor_msgs::distortion_models::PLUMB_BOB;
+        // 8 coefficients: rational polynomial
+        // 12 coefficients: rational polynomial + thin prism distortion
+        // 14 coefficients: rational polynomial + thin prism + sensor tilt
+        case 8:
+        case 12:
+        case 14:
+            return sensor_msgs::distortion_models::RATIONAL_POLYNOMIAL;
+        // Other sizes should not be possible, but we'll default to the "Plumb Bob" with a warning
+        default:
+            return sensor_msgs::distortion_models::PLUMB_BOB + " # Possibly incorrect";
+    }
+}
 
 /**
+ * Output cv::Mat as a yaml record to an output stream.
+ * 
+ * @param output A reference to a derivative of std::ostream (a file stream, for example).
+ * @param matName Name of the output matrix (as should be written in the yaml file).
+ * @param mat A cv::Mat containing the data
+ * @return Reference to the output stream
+ * @note This is a hacky way to output matrix data; it does not support outputting to a nested YAML element,
+ *       and only supports CV_64F matrices. Still, it's enough for our case.
  */
-static bool saveCameraParams(const string &filename, Size imageSize, float aspectRatio, int flags,
-                             const Mat &cameraMatrix, const Mat &distCoeffs, double totalAvgErr) {
-    FileStorage fs(filename, FileStorage::WRITE);
-    if(!fs.isOpened())
-        return false;
+static std::ostream& cvToYamlArray(std::ostream& output, const std::string& matName, const cv::Mat& mat)
+{
+    output << matName << ":" << std::endl;
+    output << "  rows: " << mat.size().height << std::endl;
+    output << "  cols: " << mat.size().width << std::endl;
+    output << "  data: [ ";
+    for(const auto& value : cv::Mat_<double>(mat))
+    {
+        output << value << ", ";
+    }
+    output << "]" << std::endl;
+    return output;
+}
 
-    Mat rectificationMatrix, projectionMatrix;
-    rectificationMatrix = Mat::eye(3, 3, CV_64F);
-    projectionMatrix = Mat::zeros(3, 4, CV_64F);
-
+/**
+ * Output camera parameters to an output stream, using ROS-compatible YAML syntax
+ * 
+ * @param result Calibration result returned by the Calibrator object.
+ * @param output A derivative of the std::ostream class where you wish to put the data.
+ * @return The (possibly changed) output stream.
+ */
+static std::ostream& saveCameraInfo(std::ostream& output, charuco_calibration::CalibrationResult& result)
+{
+    // Field order does not matter here, but still
+    output << "image_width: " << result.imgSize.width << std::endl;
+    output << "image_height: " << result.imgSize.height << std::endl;
+    output << "distortion_model: " << distortionModelFromResult(result) << std::endl;
+    // FIXME: Grab camera name from somewhere?
+    output << "camera_name: " << "camera" << std::endl;
+    cvToYamlArray(output, "camera_matrix", result.cameraMatrix);
+    cvToYamlArray(output, "distortion_coefficients", result.distCoeffs);
+    // FIXME: Add recrification matrix to calibration results?
+    cvToYamlArray(output, "rectification_matrix", cv::Mat::eye(3, 3, CV_64F));
+    // FIXME: Add projection matrix to calibration results?
+    cv::Mat projectionMatrix = cv::Mat::zeros(3, 4, CV_64F);
     for(int i = 0; i < 3; i++) {
         for(int j = 0; j < 3; j++) {
-            projectionMatrix.at< double >(i, j) = cameraMatrix.at< double >(i, j);
+            projectionMatrix.at< double >(i, j) = result.cameraMatrix.at<double>(i, j);
         }
     }
-
-    Mat croppedDistCoeffs = distCoeffs.colRange(0, 8);
-
-    fs << "image_width" << imageSize.width;
-    fs << "image_height" << imageSize.height;
-    fs << "distortion_model" << "plumb_bob";
-    fs << "camera_name" << "raspicam";
-    fs << "avg_reprojection_error" << totalAvgErr;
-    fs << "camera_matrix" << cameraMatrix;
-    fs << "distortion_coefficients" << croppedDistCoeffs;
-    fs << "rectification_matrix" << rectificationMatrix;
-    fs << "projection_matrix" << projectionMatrix;
-
-    return true;
+    cvToYamlArray(output, "projection_matrix", projectionMatrix);
+    return output;
 }
 
 static void readCalibratorParams(charuco_calibration::Calibrator& calibrator, ros::NodeHandle& nh)
@@ -288,19 +340,19 @@ int main(int argc, char *argv[]) {
 
     if (calibResult.isValid)
     {
-        bool saveOk =  saveCameraParams(outputFilePath, 
-            calibResult.imgSize, /* calibrator.params.aspectRatio */ 1.0f,
-            calibrator.params.calibrationFlags,
-            calibResult.cameraMatrix, calibResult.distCoeffs, calibResult.reprojectionError);
-        if(!saveOk) {
-            cerr << "Cannot save output file" << endl;
-            return 0;
+        std::ofstream outFile(outputFilePath);
+        outFile << "# File generated by charuco_calibration" << std::endl;
+        saveCameraInfo(outFile, calibResult);
+        if (!outFile)
+        {
+            std::cerr << "Encountered an error while writing result" << std::endl;
         }
-
+        else
+        {
+            cout << "Calibration saved to " << outputFilePath << endl;
+            cout << "Check undistorted images from camera. Press esc to exit." << endl;
+        }
     }
-    
-    cout << "Calibration saved to " << outputFilePath << endl;
-    cout << "Check undistorted images from camera. Press esc to exit." << endl;
 
     while(hasImage) {
         Mat image, imageUndistorted;
