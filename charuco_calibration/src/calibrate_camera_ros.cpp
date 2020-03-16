@@ -103,7 +103,17 @@ static bool readDetectorParameters(ros::NodeHandle& nh, Ptr<aruco::DetectorParam
     GET_PARAM(minCornerDistanceRate);
     GET_PARAM(minDistanceToBorder);
     GET_PARAM(minMarkerDistanceRate);
+#if (CV_VERSION_MAJOR == 3) && (CV_VERSION_MINOR >= 3)
     GET_PARAM(cornerRefinementMethod);
+#else
+    // Older OpenCV versions only have doCornerRefinement
+    int cornerRefinementMethod = nh.param("cornerRefinementMethod", 0);
+    if (cornerRefinementMethod > 1)
+    {
+        ROS_WARN_STREAM("cornerRefinementMethod set to " << cornerRefinementMethod << ", but current OpenCV version only supports subpixel refinement");
+    }
+    params->doCornerRefinement = bool(cornerRefinementMethod);
+#endif
     GET_PARAM(cornerRefinementWinSize);
     GET_PARAM(cornerRefinementMaxIterations);
     GET_PARAM(cornerRefinementMinAccuracy);
