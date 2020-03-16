@@ -100,6 +100,43 @@ static bool readDetectorParameters(ros::NodeHandle& nh, Ptr<aruco::DetectorParam
     return true;
 }
 
+static bool readCalibrationFlags(ros::NodeHandle& nh, int& calibrationFlags)
+{
+    if (!nh.hasParam("calibration_flags"))
+    {
+        return false;
+    }
+    calibrationFlags = 0;
+#define GET_FLAG(flag_name) { bool flagSet = nh.param("calibration_flags/" #flag_name, false); calibrationFlags |= flagSet ? cv::flag_name : 0; ROS_INFO_STREAM("Calibration flag " #flag_name " set to " << flagSet);}
+    GET_FLAG(CALIB_USE_INTRINSIC_GUESS);
+    GET_FLAG(CALIB_FIX_ASPECT_RATIO);
+    GET_FLAG(CALIB_FIX_PRINCIPAL_POINT);
+    GET_FLAG(CALIB_ZERO_TANGENT_DIST);
+    GET_FLAG(CALIB_FIX_FOCAL_LENGTH);
+    GET_FLAG(CALIB_FIX_K1);
+    GET_FLAG(CALIB_FIX_K2);
+    GET_FLAG(CALIB_FIX_K3);
+    GET_FLAG(CALIB_FIX_K4);
+    GET_FLAG(CALIB_FIX_K5);
+    GET_FLAG(CALIB_FIX_K6);
+    GET_FLAG(CALIB_RATIONAL_MODEL);
+    GET_FLAG(CALIB_THIN_PRISM_MODEL);
+    GET_FLAG(CALIB_FIX_S1_S2_S3_S4);
+    GET_FLAG(CALIB_TILTED_MODEL);
+    GET_FLAG(CALIB_FIX_TAUX_TAUY);
+    GET_FLAG(CALIB_USE_QR);
+    GET_FLAG(CALIB_FIX_INTRINSIC);
+    GET_FLAG(CALIB_SAME_FOCAL_LENGTH);
+    GET_FLAG(CALIB_ZERO_DISPARITY);
+    GET_FLAG(CALIB_USE_LU);
+#if (CV_VERSION_MAJOR == 3) && (CV_VERSION_MINOR >= 3)
+    GET_FLAG(CALIB_FIX_TANGENT_DIST);
+    GET_FLAG(CALIB_USE_EXTRINSIC_GUESS);
+#endif
+#undef GET_FLAG
+    return true;
+}
+
 /**
  * Get ROS-compatible distortion model from calibration result.
  * 
@@ -195,7 +232,15 @@ static void readCalibratorParams(ros::NodeHandle& nh, charuco_calibration::Calib
     calibrator.params.performRefinement = nh.param("perform_refinement", false);
     calibrator.params.drawHistoricalMarkers = nh.param("draw_historical_markers", true);
     // FIXME: Make flags usage more user-friendly
-    calibrator.params.calibrationFlags = nh.param<int>("calibration_flags_mask", cv::CALIB_RATIONAL_MODEL);
+    if (!readCalibrationFlags(nh, calibrator.params.calibrationFlags))
+    {
+        ROS_WARN("Could not retrieve calibration_flags from parameter server");
+        calibrator.params.calibrationFlags = nh.param<int>("calibration_flags_mask", cv::CALIB_RATIONAL_MODEL);
+    }
+    else
+    {
+        ROS_INFO_STREAM("Calibration flags set to " << calibrator.params.calibrationFlags);
+    }
     calibrator.applyParams();
 }
 

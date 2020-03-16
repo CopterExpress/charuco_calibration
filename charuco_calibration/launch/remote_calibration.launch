@@ -19,7 +19,8 @@
         <param name="draw_historical_markers" value="true"/>
         <!-- Calibration flags bitmask -->
         <!-- See https://docs.opencv.org/3.4.9/d9/d0c/group__calib3d.html#ggae448fb075a142f17c407d40b04321795a6eedf3c8312d4b29edfe0a434722e2ef for values and details -->
-        <param name="calibration_flags_mask" value="16384"/> <!-- cv::CALIB_RATIONAL_MODEL -->
+        <!-- NOTE: This value is overriden by calibration_flags section -->
+        <!-- <param name="calibration_flags_mask" value="16384"/> --> <!-- cv::CALIB_RATIONAL_MODEL -->
         <!-- Should we save the images used in calibration? -->
         <param name="save_images" value="true"/>
         <!-- Calibration file name -->
