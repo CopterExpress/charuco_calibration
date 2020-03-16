@@ -212,7 +212,7 @@ static std::ostream& saveCameraInfo(std::ostream& output, charuco_calibration::C
     return output;
 }
 
-static void readCalibratorParams(charuco_calibration::Calibrator& calibrator, ros::NodeHandle& nh)
+static void readCalibratorParams(ros::NodeHandle& nh, charuco_calibration::Calibrator& calibrator)
 {
     calibrator.params.squaresX = nh.param("squares_x", 6);
     calibrator.params.squaresY = nh.param("squares_y", 8);
@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
     ros::NodeHandle nhPriv("~");
 
     charuco_calibration::Calibrator calibrator;
-    readCalibratorParams(calibrator, nhPriv);
+    readCalibratorParams(nhPriv, calibrator);
 
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
     string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
