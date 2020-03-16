@@ -4,7 +4,7 @@
         <remap from="image" to="main_camera/image_raw"/>
         <param name="square_length" value="0.028875" />
         <param name="marker_length" value="0.0175"/>
-	<param name="save_images" value="true"/>
+        <param name="save_images" value="true"/>
     </node>
 
 </launch>
