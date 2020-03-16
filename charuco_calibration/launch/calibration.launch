@@ -2,11 +2,13 @@
     <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" />
 
     <node pkg="nodelet" type="nodelet" name="cv_camera" args="load cv_camera/CvCameraNodelet nodelet_manager">
-        <param name="device_id" value="0"></param>
+        <param name="device_id" value="0"/>
     </node>
 
     <node pkg="charuco_calibration" name="charuco_calibration" type="charuco_calibration_node" output="screen">
         <remap from="image" to="cv_camera/image_raw"/>
+        <!-- Load ArUco detector parameters -->
+        <rosparam command="load" file="$(find charuco_calibration)/launch/calibration_params.yaml"/>
     </node>
 
 </launch>

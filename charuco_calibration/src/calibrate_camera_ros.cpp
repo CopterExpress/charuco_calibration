@@ -91,32 +91,29 @@ const char* keys  =
 
 /**
  */
-static bool readDetectorParameters(string filename, Ptr<aruco::DetectorParameters> &params) {
-    FileStorage fs(filename, FileStorage::READ);
-    if(!fs.isOpened())
-        return false;
-    fs["adaptiveThreshWinSizeMin"] >> params->adaptiveThreshWinSizeMin;
-    fs["adaptiveThreshWinSizeMax"] >> params->adaptiveThreshWinSizeMax;
-    fs["adaptiveThreshWinSizeStep"] >> params->adaptiveThreshWinSizeStep;
-    fs["adaptiveThreshConstant"] >> params->adaptiveThreshConstant;
-    fs["minMarkerPerimeterRate"] >> params->minMarkerPerimeterRate;
-    fs["maxMarkerPerimeterRate"] >> params->maxMarkerPerimeterRate;
-    fs["polygonalApproxAccuracyRate"] >> params->polygonalApproxAccuracyRate;
-    fs["minCornerDistanceRate"] >> params->minCornerDistanceRate;
-    fs["minDistanceToBorder"] >> params->minDistanceToBorder;
-    fs["minMarkerDistanceRate"] >> params->minMarkerDistanceRate;
-#if (CV_VERSION_MAJOR == 3) && (CV_VERSION_MIDOR >= 3)
-    fs["cornerRefinementMethod"] >> params->cornerRefinementMethod;
-#endif
-    fs["cornerRefinementWinSize"] >> params->cornerRefinementWinSize;
-    fs["cornerRefinementMaxIterations"] >> params->cornerRefinementMaxIterations;
-    fs["cornerRefinementMinAccuracy"] >> params->cornerRefinementMinAccuracy;
-    fs["markerBorderBits"] >> params->markerBorderBits;
-    fs["perspectiveRemovePixelPerCell"] >> params->perspectiveRemovePixelPerCell;
-    fs["perspectiveRemoveIgnoredMarginPerCell"] >> params->perspectiveRemoveIgnoredMarginPerCell;
-    fs["maxErroneousBitsInBorderRate"] >> params->maxErroneousBitsInBorderRate;
-    fs["minOtsuStdDev"] >> params->minOtsuStdDev;
-    fs["errorCorrectionRate"] >> params->errorCorrectionRate;
+static bool readDetectorParameters(ros::NodeHandle& nh, Ptr<aruco::DetectorParameters> &params) {
+#define GET_PARAM(paramName) {params->paramName = nh.param(#paramName, params->paramName); ROS_INFO_STREAM(#paramName " set to " << params->paramName);}
+    GET_PARAM(adaptiveThreshWinSizeMin);
+    GET_PARAM(adaptiveThreshWinSizeMax);
+    GET_PARAM(adaptiveThreshWinSizeStep);
+    GET_PARAM(adaptiveThreshConstant);
+    GET_PARAM(minMarkerPerimeterRate);
+    GET_PARAM(maxMarkerPerimeterRate);
+    GET_PARAM(polygonalApproxAccuracyRate);
+    GET_PARAM(minCornerDistanceRate);
+    GET_PARAM(minDistanceToBorder);
+    GET_PARAM(minMarkerDistanceRate);
+    GET_PARAM(cornerRefinementMethod);
+    GET_PARAM(cornerRefinementWinSize);
+    GET_PARAM(cornerRefinementMaxIterations);
+    GET_PARAM(cornerRefinementMinAccuracy);
+    GET_PARAM(markerBorderBits);
+    GET_PARAM(perspectiveRemovePixelPerCell);
+    GET_PARAM(perspectiveRemoveIgnoredMarginPerCell);
+    GET_PARAM(maxErroneousBitsInBorderRate);
+    GET_PARAM(minOtsuStdDev);
+    GET_PARAM(errorCorrectionRate);
+#undef GET_PARAM
     return true;
 }
 
@@ -264,14 +261,8 @@ int main(int argc, char *argv[]) {
 
     bool showChessboardCorners = true;
 
-    // FIXME: Allow setting detector params from node parameters
-    if(parser.has("dp")) {
-        bool readOk = readDetectorParameters(parser.get<string>("dp"), calibrator.arucoDetectorParams);
-        if(!readOk) {
-            cerr << "Invalid detector parameters file" << endl;
-            return 0;
-        }
-    }
+    ros::NodeHandle nh_detector("~detector_parameters");
+    readDetectorParameters(nh_detector, calibrator.arucoDetectorParams);
 
     //image_transport::TransportHints hints("compressed", ros::TransportHints());
     image_transport::ImageTransport it(nh);
