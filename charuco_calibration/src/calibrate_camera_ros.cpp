@@ -60,34 +60,7 @@ the use of this software, even if advised of the possibility of such damage.
 #include <ctime>
 #include <fstream>
 
-using namespace std;
 using namespace cv;
-
-namespace {
-const char* about =
-        "Calibration using a ChArUco board\n"
-        "  To capture a frame for calibration, press 'c',\n"
-        "  If input comes from video, press any key for next frame\n"
-        "  To finish capturing, press 'ESC' key and calibration starts.\n";
-const char* keys  =
-        "{w        |       | Number of squares in X direction }"
-        "{h        |       | Number of squares in Y direction }"
-        "{sl       |       | Square side length (in meters) }"
-        "{ml       |       | Marker side length (in meters) }"
-        "{d        |       | dictionary: DICT_4X4_50=0, DICT_4X4_100=1, DICT_4X4_250=2,"
-        "DICT_4X4_1000=3, DICT_5X5_50=4, DICT_5X5_100=5, DICT_5X5_250=6, DICT_5X5_1000=7, "
-        "DICT_6X6_50=8, DICT_6X6_100=9, DICT_6X6_250=10, DICT_6X6_1000=11, DICT_7X7_50=12,"
-        "DICT_7X7_100=13, DICT_7X7_250=14, DICT_7X7_1000=15, DICT_ARUCO_ORIGINAL = 16}"
-        "{@outfile |<none> | Output file with calibrated camera parameters }"
-        "{v        |       | Input from video file, if ommited, input comes from camera }"
-        "{ci       | 0     | Camera id if input doesnt come from video (-v) }"
-        "{dp       |       | File of marker detector parameters }"
-        "{rs       | false | Apply refind strategy }"
-        "{zt       | false | Assume zero tangential distortion }"
-        "{a        |       | Fix aspect ratio (fx/fy) to this value }"
-        "{pc       | false | Fix the principal point at the center }"
-        "{sc       | false | Show detected chessboard corners after calibration }";
-}
 
 /**
  */
@@ -241,17 +214,14 @@ void imageCallback(const sensor_msgs::ImageConstPtr &img)
 int main(int argc, char *argv[]) {
     ros::init(argc, argv, "cv_calib");
 
-    string imgPath;
+    std::string imgPath;
 
     // Get current datetime
     auto t = time(nullptr);
     auto tm = *localtime(&t);
-    ostringstream oss;
-    oss << "calibration_" << put_time(&tm, "%Y%m%d_%H%M%S");
+    std::ostringstream oss;
+    oss << "calibration_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
     auto datetime = oss.str();
-
-    CommandLineParser parser(argc, argv, keys);
-    parser.about(about);
 
     ros::NodeHandle nh;
     ros::NodeHandle nhPriv("~");
@@ -260,7 +230,7 @@ int main(int argc, char *argv[]) {
     readCalibratorParams(nhPriv, calibrator);
 
     bool saveCalibrationImages = nhPriv.param<bool>("save_images", true);
-    string outputFile = nhPriv.param<string>("output_file", "calibration.yaml");
+    std::string outputFile = nhPriv.param<std::string>("output_file", "calibration.yaml");
     
     // Make folder with timedate name
     mkdir(datetime.c_str(), 0775);
@@ -314,16 +284,16 @@ int main(int argc, char *argv[]) {
         if(key == 27) break;
         if(key == 'c') {
             if (detectionResult.isValid()) {
-                cout << "Frame " << imgCounter << " captured and saved" << endl;
+                std::cout << "Frame " << imgCounter << " captured and saved" << std::endl;
                 calibrator.addToCalibrationList(detectionResult);
                 if (saveCalibrationImages) {
-                    imgPath = datetime + "/" + to_string(imgCounter) + ".png";
+                    imgPath = datetime + "/" + std::to_string(imgCounter) + ".png";
                     imwrite(imgPath.c_str(), image);
                 }
                 imgCounter++;
             }
             else {
-                cout << "Frame rejected" << endl;
+                std::cout << "Frame rejected" << std::endl;
             }
         }
         ros::spinOnce();
@@ -335,7 +305,7 @@ int main(int argc, char *argv[]) {
 
     cvDestroyWindow("out");
 
-    cout << "Calibrating..." << endl;
+    std::cout << "Calibrating..." << std::endl;
 
     auto calibResult = calibrator.performCalibration();
 
@@ -350,8 +320,8 @@ int main(int argc, char *argv[]) {
         }
         else
         {
-            cout << "Calibration saved to " << outputFilePath << endl;
-            cout << "Check undistorted images from camera. Press esc to exit." << endl;
+            std::cout << "Calibration saved to " << outputFilePath << std::endl;
+            std::cout << "Check undistorted images from camera. Press esc to exit." << std::endl;
         }
     }
 
