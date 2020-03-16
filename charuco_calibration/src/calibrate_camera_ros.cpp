@@ -254,6 +254,33 @@ void imageCallback(const sensor_msgs::ImageConstPtr &img)
     hasImage = true;
 }
 
+static void logFunction(charuco_calibration::LogLevel logLevel, const std::string& message)
+{
+    ros::console::levels::Level rosLogLevel;
+    switch(logLevel)
+    {
+        case charuco_calibration::LogLevel::DEBUG:
+            rosLogLevel = ros::console::levels::Level::Debug;
+            break;
+        case charuco_calibration::LogLevel::INFO:
+            rosLogLevel = ros::console::levels::Level::Info;
+            break;
+        case charuco_calibration::LogLevel::WARN:
+            rosLogLevel = ros::console::levels::Level::Warn;
+            break;
+        case charuco_calibration::LogLevel::ERROR:
+            rosLogLevel = ros::console::levels::Level::Error;
+            break;
+        case charuco_calibration::LogLevel::FATAL:
+            rosLogLevel = ros::console::levels::Level::Fatal;
+            break;
+        default:
+            // This should never happen, but if it does, everything went south
+            rosLogLevel = ros::console::levels::Level::Fatal;
+    }
+    ROS_LOG(rosLogLevel, ROSCONSOLE_DEFAULT_NAME, "%s", message.c_str());
+}
+
 /**
  */
 int main(int argc, char *argv[]) {
@@ -313,6 +340,8 @@ int main(int argc, char *argv[]) {
     }
 
     int imgCounter = 1;
+
+    calibrator.setLogger(logFunction);
 
     while(hasImage) {
         Mat image;

@@ -102,7 +102,7 @@ public:
         std::ignore = msg;
     };
     /** Set logging function */
-    void setLogger(CalibratorLogFunction& logFcn)
+    void setLogger(const CalibratorLogFunction& logFcn)
     {
         calibLogger = logFcn;
     }
