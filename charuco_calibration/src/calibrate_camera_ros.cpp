@@ -229,6 +229,7 @@ static void readCalibratorParams(ros::NodeHandle& nh, charuco_calibration::Calib
     calibrator.params.squareLength = nh.param("square_length", 0.021);
     calibrator.params.markerLength = nh.param("marker_length", 0.013);
     calibrator.params.dictionaryId = nh.param("dictionary_id", 4);
+    calibrator.params.aspectRatio = nh.param("aspect_ratio", 1.0);
     calibrator.params.performRefinement = nh.param("perform_refinement", false);
     calibrator.params.drawHistoricalMarkers = nh.param("draw_historical_markers", true);
     // FIXME: Make flags usage more user-friendly
@@ -240,6 +241,13 @@ static void readCalibratorParams(ros::NodeHandle& nh, charuco_calibration::Calib
     else
     {
         ROS_INFO_STREAM("Calibration flags set to " << calibrator.params.calibrationFlags);
+    }
+    if (std::abs(calibrator.params.aspectRatio - 1.0) > 0.01)
+    {
+        if (!(calibrator.params.calibrationFlags & cv::CALIB_FIX_ASPECT_RATIO))
+        {
+            ROS_WARN_STREAM("Aspect ratio is " << calibrator.params.aspectRatio << ", but CALIB_FIX_ASPECT_RATIO is not set");
+        }
     }
     calibrator.applyParams();
 }

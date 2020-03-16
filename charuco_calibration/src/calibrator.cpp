@@ -138,14 +138,13 @@ cv::Mat Calibrator::drawDetectionResults(const CalibratorDetectionResult& detect
 CalibrationResult Calibrator::performCalibration()
 {
     CalibrationResult result;
-    // FIXME: Add aspect ratio to calibration parameters?
-    /*
+
     if (params.calibrationFlags & cv::CALIB_FIX_ASPECT_RATIO)
     {
         result.cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
         result.cameraMatrix.at<double>(0, 0) = params.aspectRatio;
     }
-    */
+
     calibLogger(LogLevel::INFO, "Starting calibration with " + std::to_string(allImgs.size()) + " images");
     if (allImgs.size() < 1)
     {

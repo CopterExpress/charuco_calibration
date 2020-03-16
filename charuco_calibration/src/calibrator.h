@@ -25,6 +25,8 @@ struct CalibratorParams
     int dictionaryId;
     /** Calibration flags (see https://docs.opencv.org/3.2.0/d9/d0c/group__calib3d.html#ga3207604e4b1a1758aa66acb6ed5aa65d for details)*/
     int calibrationFlags;
+    /** Aspect ratio (if CALIB_FIX_ASPECT_RATIO is set) */
+    double aspectRatio;
     /** Should we perform ArUco detection refinement? */
     bool performRefinement;
     /** Should we draw markers that we have already seen? */
@@ -33,7 +35,8 @@ struct CalibratorParams
     CalibratorParams() : squaresX(6), squaresY(8),
         squareLength(0.021), markerLength(0.013),
         dictionaryId(4), calibrationFlags(cv::CALIB_RATIONAL_MODEL),
-        performRefinement(false) {}
+        aspectRatio(1.0), performRefinement(false),
+        drawHistoricalMarkers(true) {}
 };
 
 /** Detection result for a single image */
