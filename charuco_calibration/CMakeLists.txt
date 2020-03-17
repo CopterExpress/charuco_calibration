@@ -137,6 +137,7 @@ include_directories(
 
 add_library(calibrator STATIC
   src/calibrator.cpp
+  src/utils.cpp
 )
 
 target_link_libraries(calibrator PUBLIC
