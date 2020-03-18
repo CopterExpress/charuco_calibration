@@ -80,7 +80,7 @@ bool readCalibrationFlags(ros::NodeHandle& nh, int& calibrationFlags)
     GET_FLAG(CALIB_SAME_FOCAL_LENGTH);
     GET_FLAG(CALIB_ZERO_DISPARITY);
     GET_FLAG(CALIB_USE_LU);
-#if (CV_VERSION_MAJOR == 3) && (CV_VERSION_MINOR >= 3)
+#if ((CV_VERSION_MAJOR == 3) && (CV_VERSION_MINOR >= 3)) || (CV_VERSION_MAJOR > 3)
     GET_FLAG(CALIB_FIX_TANGENT_DIST);
     GET_FLAG(CALIB_USE_EXTRINSIC_GUESS);
 #endif
