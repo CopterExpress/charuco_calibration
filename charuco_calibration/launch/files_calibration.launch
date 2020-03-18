@@ -2,7 +2,8 @@
 
     <arg name="images_path" default="$(env HOME)/calib_images"/>
 
-    <node pkg="charuco_calibration" name="charuco_calibration" type="calibrate_camera_from_files" output="screen">
+    <!-- Mark node as required so that roslaunch exits -->
+    <node pkg="charuco_calibration" name="charuco_calibration" type="calibrate_camera_from_files" output="screen" required="true">
         <!-- Path to directory with images -->
         <param name="images_path" value="$(arg images_path)"/>
         <!-- Output file name -->
