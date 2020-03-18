@@ -1,6 +1,6 @@
 <launch>
 
-    <arg name="images_path" default="~/calib_images"/>
+    <arg name="images_path" default="$(env HOME)/calib_images"/>
 
     <node pkg="charuco_calibration" name="charuco_calibration" type="calibrate_camera_from_files" output="screen">
         <!-- Path to directory with images -->
@@ -20,8 +20,6 @@
         <param name="dictionary_id" value="4"/>
         <!-- Should we perform ArUco detection refinement? (see https://docs.opencv.org/3.4.9/d9/d6a/group__aruco.html#ga13a2742381c0a48e146d230a8cda2e66 for details) -->
         <param name="perform_refinement" value="true"/>
-        <!-- Should we draw points where we've already detected a marker corner? -->
-        <param name="draw_historical_markers" value="true"/>
         <!-- Load ArUco detector parameters -->
         <rosparam command="load" file="$(find charuco_calibration)/launch/calibration_params.yaml"/>
     </node>
