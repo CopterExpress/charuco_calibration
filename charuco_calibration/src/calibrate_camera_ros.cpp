@@ -143,7 +143,11 @@ int main(int argc, char *argv[]) {
     ROS_INFO("Advertising charuco board image");
     auto pub = nhPriv.advertise<sensor_msgs::Image>("board", 1, true);
 
-    auto boardImg = calibrator.getBoardImage(2048, 1536, 100);
+    int boardImgWidth = nhPriv.param("board_image_width", 1536);
+    int boardImgHeight = nhPriv.param("board_image_height", 2048);
+    int boardImgBorder = nhPriv.param("board_image_border", 100);
+
+    auto boardImg = calibrator.getBoardImage(boardImgWidth, boardImgHeight, boardImgBorder);
 
     cv::imwrite("board.png", boardImg);
     cv_bridge::CvImage boardImgBridge;

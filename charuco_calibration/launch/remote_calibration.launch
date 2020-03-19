@@ -13,6 +13,12 @@
         <param name="squares_y" value="8"/>
         <!-- Dicitonary ID used in calibration (see https://docs.opencv.org/3.4.9/d9/d6a/group__aruco.html#gac84398a9ed9dd01306592dd616c2c975 for details) -->
         <param name="dictionary_id" value="4"/>
+        <!-- Board image width, in pixels -->
+        <param name="board_image_width" value="1536"/>
+        <!-- Board image height, in pixels -->
+        <param name="board_image_height" value="2048"/>
+        <!-- Board image border, in pixels -->
+        <param name="board_image_border" value="100"/>
         <!-- Should we perform ArUco detection refinement? (see https://docs.opencv.org/3.4.9/d9/d6a/group__aruco.html#ga13a2742381c0a48e146d230a8cda2e66 for details) -->
         <param name="perform_refinement" value="true"/>
         <!-- Should we draw points where we've already detected a marker corner? -->
