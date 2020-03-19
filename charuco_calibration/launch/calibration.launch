@@ -5,13 +5,11 @@
 
     <node pkg="nodelet" type="nodelet" name="cv_camera" args="load cv_camera/CvCameraNodelet nodelet_manager" output="screen">
         <param name="device_id" value="0"/>
-        <param name="frame_id" value="main_camera_optical"/>
-        <param name="camera_name" value="main_camera"/>
     </node>
 
     <node pkg="charuco_calibration" name="charuco_calibration" type="charuco_calibration_node" output="screen">
         <!-- Image source. The node subscribes to image topic, remap your topic to it -->
-        <remap from="image" to="main_camera/image_raw"/>
+        <remap from="image" to="cv_camera/image_raw"/>
         <!-- Chessboard square size, in meters -->
         <param name="square_length" value="0.028875" />
         <!-- ArUco marker size, in meters -->
