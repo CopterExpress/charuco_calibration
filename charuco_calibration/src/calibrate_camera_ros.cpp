@@ -128,8 +128,6 @@ int main(int argc, char *argv[]) {
     oss << "/" << outputFile;
     auto outputFilePath = oss.str();
 
-    bool showChessboardCorners = true;
-
     ros::NodeHandle nh_detector("~detector_parameters");
     readDetectorParameters(nh_detector, calibrator.arucoDetectorParams);
 
