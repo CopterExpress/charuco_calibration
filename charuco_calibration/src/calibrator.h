@@ -135,7 +135,7 @@ public:
     /** Get cv::Mat with the board image */
     cv::Mat getBoardImage(int width, int height, int margin=0)
     {
-        cv::Mat boardImg(width, height, CV_8UC1);
+        cv::Mat boardImg(height, width, CV_8UC1);
         charucoBoard->draw(boardImg.size(), boardImg, margin);
         return boardImg;
     }
