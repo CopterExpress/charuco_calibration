@@ -1,0 +1,28 @@
+<launch>
+
+    <arg name="images_path" default="$(env HOME)/calib_images"/>
+
+    <!-- Mark node as required so that roslaunch exits -->
+    <node pkg="charuco_calibration" name="charuco_calibration" type="calibrate_camera_from_files" output="screen" required="true">
+        <!-- Path to directory with images -->
+        <param name="images_path" value="$(arg images_path)"/>
+        <!-- Output file name -->
+        <param name="output_file" value="calibration.yaml"/>
+
+        <!-- Chessboard square size, in meters -->
+        <param name="square_length" value="0.028875" />
+        <!-- ArUco marker size, in meters -->
+        <param name="marker_length" value="0.0175"/>
+        <!-- Number of squares in the X direciton -->
+        <param name="squares_x" value="6"/>
+        <!-- Number of squares in the Y direction -->
+        <param name="squares_y" value="8"/>
+        <!-- Dicitonary ID used in calibration (see https://docs.opencv.org/3.4.9/d9/d6a/group__aruco.html#gac84398a9ed9dd01306592dd616c2c975 for details) -->
+        <param name="dictionary_id" value="4"/>
+        <!-- Should we perform ArUco detection refinement? (see https://docs.opencv.org/3.4.9/d9/d6a/group__aruco.html#ga13a2742381c0a48e146d230a8cda2e66 for details) -->
+        <param name="perform_refinement" value="true"/>
+        <!-- Load ArUco detector parameters -->
+        <rosparam command="load" file="$(find charuco_calibration)/launch/calibration_params.yaml"/>
+    </node>
+
+</launch>

@@ -1,0 +1,48 @@
+calibration_flags:
+  CALIB_USE_INTRINSIC_GUESS: false
+  CALIB_FIX_ASPECT_RATIO: false
+  CALIB_FIX_PRINCIPAL_POINT: false
+  CALIB_ZERO_TANGENT_DIST: false
+  CALIB_FIX_FOCAL_LENGTH: false
+  CALIB_FIX_K1: false
+  CALIB_FIX_K2: false
+  CALIB_FIX_K3: false
+  CALIB_FIX_K4: false
+  CALIB_FIX_K5: false
+  CALIB_FIX_K6: false
+  CALIB_RATIONAL_MODEL: true
+  CALIB_THIN_PRISM_MODEL: false
+  CALIB_FIX_S1_S2_S3_S4: false
+  CALIB_TILTED_MODEL: false
+  CALIB_FIX_TAUX_TAUY: false
+  CALIB_USE_QR: false
+  CALIB_FIX_INTRINSIC: false
+  CALIB_SAME_FOCAL_LENGTH: false
+  CALIB_ZERO_DISPARITY: false
+  CALIB_USE_LU: false
+# OpenCV 3.3+ only
+  CALIB_FIX_TANGENT_DIST: false
+  CALIB_USE_EXTRINSIC_GUESS: false
+detector_parameters:
+  adaptiveThreshWinSizeMin: 3
+  adaptiveThreshWinSizeMax: 32
+  adaptiveThreshWinSizeStep: 5
+  adaptiveThreshConstant: 5
+  minMarkerPerimeterRate: 0.06
+  maxMarkerPerimeterRate: 3
+  polygonalApproxAccuracyRate: 0.04
+  minCornerDistanceRate: 0.05
+  minDistanceToBorder: 3
+  minMarkerDistanceRate: 0.05
+# Corner refinement method: 0 for CORNER_REFINE_NONE, 1 for CORNER_REFINE_SUBPIX,
+# 2 for CORNER_REFINE_CONTOUR, 3 for CONTOUR_REFINE_APRILTAG
+  cornerRefinementMethod: 2
+  cornerRefinementWinSize: 5
+  cornerRefinementMaxIterations: 30
+  cornerRefinementMinAccuracy: 0.1
+  markerBorderBits: 1
+  perspectiveRemovePixelPerCell: 4
+  perspectiveRemoveIgnoredMarginPerCell: 0.13
+  maxErroneousBitsInBorderRate: 0.35
+  minOtsuStdDev: 4.0
+  errorCorrectionRate: 0.6

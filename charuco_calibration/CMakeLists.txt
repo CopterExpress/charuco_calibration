@@ -16,7 +16,16 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV 3 REQUIRED COMPONENTS
+  aruco
+  calib3d
+  core
+  imgproc
+  highgui
+)
+
+message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
+message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -126,6 +135,19 @@ include_directories(
 #   src/${PROJECT_NAME}/calib_charuco.cpp
 # )
 
+add_library(calibrator STATIC
+  src/calibrator.cpp
+  src/utils.cpp
+)
+
+target_link_libraries(calibrator PUBLIC
+  ${OpenCV_LIBS}
+)
+
+target_include_directories(calibrator PUBLIC
+  ${OpenCV_INCLUDE_DIRS}
+)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
@@ -134,7 +156,21 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/calibrate_camera_ros.cpp)
+add_executable(${PROJECT_NAME}_node 
+  src/calibrate_camera_ros.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}_node PRIVATE
+  calibrator
+)
+
+add_executable(calibrate_camera_from_files
+  src/calibrate_camera_from_files.cpp
+)
+
+target_link_libraries(calibrate_camera_from_files PRIVATE
+  calibrator
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -145,9 +181,15 @@ add_executable(${PROJECT_NAME}_node src/calibrate_camera_ros.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(calibrate_camera_from_files ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_node
+target_link_libraries(${PROJECT_NAME}_node PRIVATE
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+
+target_link_libraries(calibrate_camera_from_files PRIVATE
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
