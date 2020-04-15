@@ -155,7 +155,7 @@ CalibrationResult Calibrator::performCalibration()
 
     calibLogger(LogLevel::INFO, "Preparing data for ArUco calibration");
     // Assume all images have the same size
-    auto imgSize = allImgs[0].size();
+    result.imgSize = allImgs[0].size();
 
     // Prepare data for ArUco calibration
     std::vector<std::vector<cv::Point2f>> allCornersConcatenated;
@@ -178,7 +178,7 @@ CalibrationResult Calibrator::performCalibration()
     // Calibrate camera using ArUco markers
     result.arucoReprojectionError = cv::aruco::calibrateCameraAruco(
         allCornersConcatenated, allIdsConcatenated,
-        markerCounterPerFrame, charucoBoard, imgSize,
+        markerCounterPerFrame, charucoBoard, result.imgSize,
         result.cameraMatrix, result.distCoeffs, cv::noArray(), cv::noArray(),
         params.calibrationFlags);
 
@@ -225,7 +225,7 @@ CalibrationResult Calibrator::performCalibration()
 
     calibLogger(LogLevel::INFO, "Performing ChAruco calibration");
     result.reprojectionError = cv::aruco::calibrateCameraCharuco(
-        allCharucoCorners, allCharucoIds, charucoBoard, imgSize,
+        allCharucoCorners, allCharucoIds, charucoBoard, result.imgSize,
         result.cameraMatrix, result.distCoeffs, result.rvecs, result.tvecs,
         params.calibrationFlags);
 
