@@ -1,0 +1,15 @@
+os: linux
+dist: xenial
+language: generic
+services:
+  - docker
+
+env:
+  - ROS_DISTRO=kinetic
+  - ROS_DISTRO=melodic
+
+before_script:
+  - docker pull ros:${ROS_DISTRO}
+
+script:
+  - docker run --rm -v $(pwd):/catkin_ws/src ros:${ROS_DISTRO} /bin/bash -c 'cd /catkin_ws; rosdep install --from-paths src --ignore-src; catkin_make'
